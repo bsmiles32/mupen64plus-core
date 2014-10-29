@@ -44,6 +44,8 @@
 #include "r4300/ops.h"
 #include "r4300/tlb.h"
 
+#include "rdram/controller.h"
+
 #include "api/callbacks.h"
 #include "main/main.h"
 #include "main/profile.h"
@@ -59,23 +61,20 @@
 #endif
 
 /* definitions of the rcp's structures and memory area */
-RDRAM_register rdram_register;
 mips_register MI_register;
 PI_register pi_register;
 SP_register sp_register;
 RSP_register rsp_register;
 SI_register si_register;
 VI_register vi_register;
-RI_register ri_register;
 AI_register ai_register;
 DPC_register dpc_register;
 DPS_register dps_register;
 
 unsigned int CIC_Chip;
 
-ALIGN(16, unsigned int rdram[0x800000/4]);
+ALIGN(16, struct rdram_controller g_rdram);
 
-unsigned char *const rdramb = (unsigned char *)(rdram);
 unsigned int SP_DMEM[0x1000/4*2];
 unsigned int *SP_IMEM = SP_DMEM+0x1000/4;
 unsigned char *SP_DMEMb = (unsigned char *)(SP_DMEM);
@@ -121,14 +120,12 @@ void (*writememd[0x10000])(void);
 void (*writememh[0x10000])(void);
 
 // memory sections
-unsigned int *readrdramreg[0x10000];
 unsigned int *readrspreg[0x10000];
 unsigned int *readrsp[0x10000];
 unsigned int *readmi[0x10000];
 unsigned int *readvi[0x10000];
 unsigned int *readai[0x10000];
 unsigned int *readpi[0x10000];
-unsigned int *readri[0x10000];
 unsigned int *readsi[0x10000];
 unsigned int *readdp[0x10000];
 unsigned int *readdps[0x10000];
@@ -144,6 +141,19 @@ static int firstFrameBufferSetting;
 #if defined( COUNT_WRITE_RDRAM_CALLS )
 	int writerdram_count = 1;
 #endif
+
+
+
+static inline unsigned int bshift(uint32_t address)
+{
+    return ((address & 3) ^ 3) << 3;
+}
+
+static inline unsigned int hshift(uint32_t address)
+{
+    return ((address & 2) ^ 2) << 3;
+}
+
 
 int init_memory(int DoByteSwap)
 {
@@ -170,9 +180,9 @@ int init_memory(int DoByteSwap)
         writememh[i] = write_nomemh;
     }
 
-    //init RDRAM
-    for (i=0; i<(0x800000/4); i++) rdram[i]=0;
+    init_rdram(&g_rdram);
 
+    /* map RDRAM RAM */
     for (i=0; i</*0x40*/0x80; i++)
     {
         readmem[(0x8000+i)] = read_rdram;
@@ -192,7 +202,6 @@ int init_memory(int DoByteSwap)
         writememd[(0x8000+i)] = write_rdramd;
         writememd[(0xa000+i)] = write_rdramd;
     }
-
     for (i=/*0x40*/0x80; i<0x3F0; i++)
     {
         readmem[0x8000+i] = read_nothing;
@@ -213,7 +222,7 @@ int init_memory(int DoByteSwap)
         writememd[0xa000+i] = write_nothingd;
     }
 
-    //init RDRAM registers
+    /* map RDRAM registers */
     readmem[0x83f0] = read_rdramreg;
     readmem[0xa3f0] = read_rdramreg;
     readmemb[0x83f0] = read_rdramregb;
@@ -230,28 +239,6 @@ int init_memory(int DoByteSwap)
     writememh[0xa3f0] = write_rdramregh;
     writememd[0x83f0] = write_rdramregd;
     writememd[0xa3f0] = write_rdramregd;
-    rdram_register.rdram_config=0;
-    rdram_register.rdram_device_id=0;
-    rdram_register.rdram_delay=0;
-    rdram_register.rdram_mode=0;
-    rdram_register.rdram_ref_interval=0;
-    rdram_register.rdram_ref_row=0;
-    rdram_register.rdram_ras_interval=0;
-    rdram_register.rdram_min_interval=0;
-    rdram_register.rdram_addr_select=0;
-    rdram_register.rdram_device_manuf=0;
-    readrdramreg[0x0] = &rdram_register.rdram_config;
-    readrdramreg[0x4] = &rdram_register.rdram_device_id;
-    readrdramreg[0x8] = &rdram_register.rdram_delay;
-    readrdramreg[0xc] = &rdram_register.rdram_mode;
-    readrdramreg[0x10] = &rdram_register.rdram_ref_interval;
-    readrdramreg[0x14] = &rdram_register.rdram_ref_row;
-    readrdramreg[0x18] = &rdram_register.rdram_ras_interval;
-    readrdramreg[0x1c] = &rdram_register.rdram_min_interval;
-    readrdramreg[0x20] = &rdram_register.rdram_addr_select;
-    readrdramreg[0x24] = &rdram_register.rdram_device_manuf;
-
-    for (i=0x28; i<0x10000; i++) readrdramreg[i] = &trash;
     for (i=1; i<0x10; i++)
     {
         readmem[0x83f0+i] = read_nothing;
@@ -749,7 +736,7 @@ int init_memory(int DoByteSwap)
         writememd[0xa460+i] = write_nothingd;
     }
 
-    //init RI registers
+    /* map RI registers */
     readmem[0x8470] = read_ri;
     readmem[0xa470] = read_ri;
     readmemb[0x8470] = read_rib;
@@ -766,24 +753,6 @@ int init_memory(int DoByteSwap)
     writememh[0xa470] = write_rih;
     writememd[0x8470] = write_rid;
     writememd[0xa470] = write_rid;
-    ri_register.ri_mode = 0;
-    ri_register.ri_config = 0;
-    ri_register.ri_select = 0;
-    ri_register.ri_current_load = 0;
-    ri_register.ri_refresh = 0;
-    ri_register.ri_latency = 0;
-    ri_register.ri_error = 0;
-    ri_register.ri_werror = 0;
-    readri[0x0] = &ri_register.ri_mode;
-    readri[0x4] = &ri_register.ri_config;
-    readri[0x8] = &ri_register.ri_current_load;
-    readri[0xc] = &ri_register.ri_select;
-    readri[0x10] = &ri_register.ri_refresh;
-    readri[0x14] = &ri_register.ri_latency;
-    readri[0x18] = &ri_register.ri_error;
-    readri[0x1c] = &ri_register.ri_werror;
-
-    for (i=0x20; i<0x10000; i++) readri[i] = &trash;
     for (i=1; i<0x10; i++)
     {
         readmem[0x8470+i] = read_nothing;
@@ -1680,23 +1649,38 @@ void write_nomemd(void)
 
 void read_rdram(void)
 {
-    *rdword = *((unsigned int *)(rdramb + (address & 0xFFFFFF)));
+    uint32_t value;
+
+    read_rdram_ram(&g_rdram, address, &value);
+    *rdword = value;
 }
 
 void read_rdramb(void)
 {
-    *rdword = *(rdramb + ((address & 0xFFFFFF)^S8));
+    uint32_t value;
+    unsigned shift = bshift(address);
+
+    read_rdram_ram(&g_rdram, address, &value);
+    *rdword = (value >> shift) & 0xff;
 }
 
 void read_rdramh(void)
 {
-    *rdword = *((unsigned short *)(rdramb + ((address & 0xFFFFFF)^S16)));
+    uint32_t value;
+    unsigned shift = hshift(address);
+
+    read_rdram_ram(&g_rdram, address, &value);
+    *rdword = (value >> shift) & 0xffff;
 }
 
 void read_rdramd(void)
 {
-    *rdword = ((unsigned long long int)(*(unsigned int *)(rdramb + (address & 0xFFFFFF))) << 32) |
-              ((*(unsigned int *)(rdramb + (address & 0xFFFFFF) + 4)));
+    uint32_t w[2];
+
+    read_rdram_ram(&g_rdram, address    , &w[0]);
+    read_rdram_ram(&g_rdram, address + 4, &w[1]);
+
+    *rdword = ((uint64_t)w[0] << 32) | w[1];
 }
 
 void read_rdramFB(void)
@@ -1793,23 +1777,31 @@ void write_rdram(void)
 	printf( "write_rdram, word=%i, count: %i", word, writerdram_count );
 	writerdram_count++;
 #endif
-    *((unsigned int *)(rdramb + (address & 0xFFFFFF))) = word;
+    write_rdram_ram(&g_rdram, address, word, ~0U);
 }
 
 void write_rdramb(void)
 {
-    *((rdramb + ((address & 0xFFFFFF)^S8))) = cpu_byte;
+    unsigned shift = bshift(address);
+    uint32_t value = (uint32_t)cpu_byte << shift;
+    uint32_t mask = (uint32_t)0xff << shift;
+
+    write_rdram_ram(&g_rdram, address, value, mask);
 }
 
 void write_rdramh(void)
 {
-    *(unsigned short *)((rdramb + ((address & 0xFFFFFF)^S16))) = hword;
+    unsigned shift = hshift(address);
+    uint32_t value = (uint32_t)hword << shift;
+    uint32_t mask = (uint32_t)0xffff << shift;
+
+    write_rdram_ram(&g_rdram, address, value, mask);
 }
 
 void write_rdramd(void)
 {
-    *((unsigned int *)(rdramb + (address & 0xFFFFFF))) = (unsigned int) (dword >> 32);
-    *((unsigned int *)(rdramb + (address & 0xFFFFFF) + 4 )) = (unsigned int) (dword & 0xFFFFFFFF);
+    write_rdram_ram(&g_rdram, address    , dword >> 32, ~0U);
+    write_rdram_ram(&g_rdram, address + 4, dword      , ~0U);
 }
 
 void write_rdramFB(void)
@@ -1886,48 +1878,67 @@ void write_rdramFBd(void)
 
 void read_rdramreg(void)
 {
-    *rdword = *(readrdramreg[*address_low]);
+    uint32_t value;
+
+    read_rdram_regs(&g_rdram, address, &value);
+    *rdword = value;
 }
 
 void read_rdramregb(void)
 {
-    *rdword = *((unsigned char*)readrdramreg[*address_low & 0xfffc]
-                + ((*address_low&3)^S8) );
+    uint32_t value;
+    unsigned shift = bshift(address);
+
+    read_rdram_regs(&g_rdram, address, &value);
+    *rdword = (value >> shift) & 0xff;
 }
 
 void read_rdramregh(void)
 {
-    *rdword = *((unsigned short*)((unsigned char*)readrdramreg[*address_low & 0xfffc]
-                                  + ((*address_low&3)^S16) ));
+    uint32_t value;
+    unsigned shift = hshift(address);
+
+    read_rdram_regs(&g_rdram, address, &value);
+    *rdword = (value >> shift) & 0xffff;
 }
 
 void read_rdramregd(void)
 {
-    *rdword = ((unsigned long long int)(*readrdramreg[*address_low])<<32) |
-              *readrdramreg[*address_low+4];
+    uint32_t w[2];
+
+    read_rdram_regs(&g_rdram, address    , &w[0]);
+    read_rdram_regs(&g_rdram, address + 4, &w[1]);
+
+    *rdword = ((uint64_t)w[0] << 32) | w[1];
 }
 
 void write_rdramreg(void)
 {
-    *readrdramreg[*address_low] = word;
+    write_rdram_regs(&g_rdram, address, word, ~0U);
 }
 
 void write_rdramregb(void)
 {
-    *((unsigned char*)readrdramreg[*address_low & 0xfffc]
-      + ((*address_low&3)^S8) ) = cpu_byte;
+    unsigned shift = bshift(address);
+    uint32_t value = (uint32_t)cpu_byte << shift;
+    uint32_t mask = (uint32_t)0xff << shift;
+
+    write_rdram_regs(&g_rdram, address, value, mask);
 }
 
 void write_rdramregh(void)
 {
-    *((unsigned short*)((unsigned char*)readrdramreg[*address_low & 0xfffc]
-                        + ((*address_low&3)^S16) )) = hword;
+    unsigned shift = hshift(address);
+    uint32_t value = (uint32_t)hword << shift;
+    uint32_t mask = (uint32_t)0xffff << shift;
+
+    write_rdram_regs(&g_rdram, address, value, mask);
 }
 
 void write_rdramregd(void)
 {
-    *readrdramreg[*address_low] = (unsigned int) (dword >> 32);
-    *readrdramreg[*address_low+4] = (unsigned int) (dword & 0xFFFFFFFF);
+    write_rdram_regs(&g_rdram, address    , dword >> 32, ~0U);
+    write_rdram_regs(&g_rdram, address + 4, dword      , ~0U);
 }
 
 void read_rsp_mem(void)
@@ -3288,48 +3299,67 @@ void write_pid(void)
 
 void read_ri(void)
 {
-    *rdword = *(readri[*address_low]);
+    uint32_t value;
+
+    read_ri_regs(&g_rdram, address, &value);
+    *rdword = value;
 }
 
 void read_rib(void)
 {
-    *rdword = *((unsigned char*)readri[*address_low & 0xfffc]
-                + ((*address_low&3)^S8) );
+    uint32_t value;
+    unsigned shift = bshift(address);
+
+    read_ri_regs(&g_rdram, address, &value);
+    *rdword = (value >> shift) & 0xff;
 }
 
 void read_rih(void)
 {
-    *rdword = *((unsigned short*)((unsigned char*)readri[*address_low & 0xfffc]
-                                  + ((*address_low&3)^S16) ));
+    uint32_t value;
+    unsigned shift = hshift(address);
+
+    read_ri_regs(&g_rdram, address, &value);
+    *rdword = (value >> shift) & 0xffff;
 }
 
 void read_rid(void)
 {
-    *rdword = ((unsigned long long int)(*readri[*address_low])<<32) |
-              *readri[*address_low+4];
+    uint32_t w[2];
+
+    read_ri_regs(&g_rdram, address    , &w[0]);
+    read_ri_regs(&g_rdram, address + 4, &w[1]);
+
+    *rdword = ((uint64_t)w[0] << 32) | w[1];
 }
 
 void write_ri(void)
 {
-    *readri[*address_low] = word;
+    write_ri_regs(&g_rdram, address, word, ~0U);
 }
 
 void write_rib(void)
 {
-    *((unsigned char*)readri[*address_low & 0xfffc]
-      + ((*address_low&3)^S8) ) = cpu_byte;
+    unsigned shift = bshift(address);
+    uint32_t value = (uint32_t)cpu_byte << shift;
+    uint32_t mask = (uint32_t)0xff << shift;
+
+    write_ri_regs(&g_rdram, address, value, mask);
 }
 
 void write_rih(void)
 {
-    *((unsigned short*)((unsigned char*)readri[*address_low & 0xfffc]
-                        + ((*address_low&3)^S16) )) = hword;
+    unsigned shift = hshift(address);
+    uint32_t value = (uint32_t)hword << shift;
+    uint32_t mask = (uint32_t)0xffff << shift;
+
+    write_ri_regs(&g_rdram, address, value, mask);
 }
 
 void write_rid(void)
 {
-    *readri[*address_low] = (unsigned int) (dword >> 32);
-    *readri[*address_low+4] = (unsigned int) (dword & 0xFFFFFFFF);
+    write_ri_regs(&g_rdram, address    , dword >> 32, ~0U);
+    write_ri_regs(&g_rdram, address + 4, dword      , ~0U);
 }
 
 void read_si(void)
@@ -3735,8 +3765,8 @@ unsigned int *fast_mem_access(unsigned int address)
 
     if ((address & 0x1FFFFFFF) >= 0x10000000)
         return (unsigned int *)rom + ((address & 0x1FFFFFFF) - 0x10000000)/4;
-    else if ((address & 0x1FFFFFFF) < 0x800000)
-        return (unsigned int *)rdram + (address & 0x1FFFFFFF)/4;
+    else if ((address & 0x1FFFFFFF) < RDRAM_MAX_SIZE)
+        return (unsigned int *)g_rdram.ram + (address & 0x1FFFFFFF)/4;
     else if (address >= 0xa4000000 && address <= 0xa4001000)
         return (unsigned int *)SP_DMEM + (address & 0xFFF)/4;
     else if ((address >= 0xa4001000 && address <= 0xa4002000))

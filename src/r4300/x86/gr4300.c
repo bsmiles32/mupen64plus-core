@@ -1308,9 +1308,9 @@ void genlb(void)
    movsx_reg32_m8(EAX, (unsigned char *)dst->f.i.rt); // 7
    jmp_imm_short(16); // 2
    
-   and_reg32_imm32(EBX, 0x7FFFFF); // 6
+   and_reg32_imm32(EBX, RDRAM_MAX_SIZE-1); // 6
    xor_reg8_imm8(BL, 3); // 3
-   movsx_reg32_8preg32pimm32(EAX, EBX, (unsigned int)rdram); // 7
+   movsx_reg32_8preg32pimm32(EAX, EBX, (unsigned int)g_rdram.ram); // 7
    
    set_register_state(EAX, (unsigned int*)dst->f.i.rt, 1);
 #endif
@@ -1348,9 +1348,9 @@ void genlh(void)
    movsx_reg32_m16(EAX, (unsigned short *)dst->f.i.rt); // 7
    jmp_imm_short(16); // 2
    
-   and_reg32_imm32(EBX, 0x7FFFFF); // 6
+   and_reg32_imm32(EBX, RDRAM_MAX_SIZE-1); // 6
    xor_reg8_imm8(BL, 2); // 3
-   movsx_reg32_16preg32pimm32(EAX, EBX, (unsigned int)rdram); // 7
+   movsx_reg32_16preg32pimm32(EAX, EBX, (unsigned int)g_rdram.ram); // 7
    
    set_register_state(EAX, (unsigned int*)dst->f.i.rt, 1);
 #endif
@@ -1393,8 +1393,8 @@ void genlw(void)
    mov_eax_memoffs32((unsigned int *)(dst->f.i.rt)); // 5
    jmp_imm_short(12); // 2
    
-   and_reg32_imm32(EBX, 0x7FFFFF); // 6
-   mov_reg32_preg32pimm32(EAX, EBX, (unsigned int)rdram); // 6
+   and_reg32_imm32(EBX, RDRAM_MAX_SIZE-1); // 6
+   mov_reg32_preg32pimm32(EAX, EBX, (unsigned int)g_rdram.ram); // 6
    
    set_register_state(EAX, (unsigned int*)dst->f.i.rt, 1);
 #endif
@@ -1432,9 +1432,9 @@ void genlbu(void)
    mov_reg32_m32(EAX, (unsigned int *)dst->f.i.rt); // 6
    jmp_imm_short(15); // 2
    
-   and_reg32_imm32(EBX, 0x7FFFFF); // 6
+   and_reg32_imm32(EBX, RDRAM_MAX_SIZE-1); // 6
    xor_reg8_imm8(BL, 3); // 3
-   mov_reg32_preg32pimm32(EAX, EBX, (unsigned int)rdram); // 6
+   mov_reg32_preg32pimm32(EAX, EBX, (unsigned int)g_rdram.ram); // 6
    
    and_eax_imm32(0xFF);
    
@@ -1474,9 +1474,9 @@ void genlhu(void)
    mov_reg32_m32(EAX, (unsigned int *)dst->f.i.rt); // 6
    jmp_imm_short(15); // 2
    
-   and_reg32_imm32(EBX, 0x7FFFFF); // 6
+   and_reg32_imm32(EBX, RDRAM_MAX_SIZE-1); // 6
    xor_reg8_imm8(BL, 2); // 3
-   mov_reg32_preg32pimm32(EAX, EBX, (unsigned int)rdram); // 6
+   mov_reg32_preg32pimm32(EAX, EBX, (unsigned int)g_rdram.ram); // 6
    
    and_eax_imm32(0xFFFF);
    
@@ -1521,8 +1521,8 @@ void genlwu(void)
    mov_eax_memoffs32((unsigned int *)(dst->f.i.rt)); // 5
    jmp_imm_short(12); // 2
    
-   and_reg32_imm32(EBX, 0x7FFFFF); // 6
-   mov_reg32_preg32pimm32(EAX, EBX, (unsigned int)rdram); // 6
+   and_reg32_imm32(EBX, RDRAM_MAX_SIZE-1); // 6
+   mov_reg32_preg32pimm32(EAX, EBX, (unsigned int)g_rdram.ram); // 6
    
    xor_reg32_reg32(EBX, EBX);
    
@@ -1564,9 +1564,9 @@ void gensb(void)
    jmp_imm_short(17); // 2
    
    mov_reg32_reg32(EAX, EBX); // 2
-   and_reg32_imm32(EBX, 0x7FFFFF); // 6
+   and_reg32_imm32(EBX, RDRAM_MAX_SIZE-1); // 6
    xor_reg8_imm8(BL, 3); // 3
-   mov_preg32pimm32_reg8(EBX, (unsigned int)rdram, CL); // 6
+   mov_preg32pimm32_reg8(EBX, (unsigned int)g_rdram.ram, CL); // 6
    
    mov_reg32_reg32(EBX, EAX);
    shr_reg32_imm8(EBX, 12);
@@ -1621,9 +1621,9 @@ void gensh(void)
    jmp_imm_short(18); // 2
    
    mov_reg32_reg32(EAX, EBX); // 2
-   and_reg32_imm32(EBX, 0x7FFFFF); // 6
+   and_reg32_imm32(EBX, RDRAM_MAX_SIZE-1); // 6
    xor_reg8_imm8(BL, 2); // 3
-   mov_preg32pimm32_reg16(EBX, (unsigned int)rdram, CX); // 7
+   mov_preg32pimm32_reg16(EBX, (unsigned int)g_rdram.ram, CX); // 7
    
    mov_reg32_reg32(EBX, EAX);
    shr_reg32_imm8(EBX, 12);
@@ -1683,8 +1683,8 @@ void gensw(void)
    jmp_imm_short(14); // 2
    
    mov_reg32_reg32(EAX, EBX); // 2
-   and_reg32_imm32(EBX, 0x7FFFFF); // 6
-   mov_preg32pimm32_reg32(EBX, (unsigned int)rdram, ECX); // 6
+   and_reg32_imm32(EBX, RDRAM_MAX_SIZE-1); // 6
+   mov_preg32pimm32_reg32(EBX, (unsigned int)g_rdram.ram, ECX); // 6
    
    mov_reg32_reg32(EBX, EAX);
    shr_reg32_imm8(EBX, 12);
@@ -1766,8 +1766,8 @@ void genlwc1(void)
    call_reg32(EBX); // 2
    jmp_imm_short(20); // 2
    
-   and_reg32_imm32(EBX, 0x7FFFFF); // 6
-   mov_reg32_preg32pimm32(EAX, EBX, (unsigned int)rdram); // 6
+   and_reg32_imm32(EBX, RDRAM_MAX_SIZE-1); // 6
+   mov_reg32_preg32pimm32(EAX, EBX, (unsigned int)g_rdram.ram); // 6
    mov_reg32_m32(EBX, (unsigned int*)(&reg_cop1_simple[dst->f.lf.ft])); // 6
    mov_preg32_reg32(EBX, EAX); // 2
 #endif
@@ -1805,9 +1805,9 @@ void genldc1(void)
    call_reg32(EBX); // 2
    jmp_imm_short(32); // 2
    
-   and_reg32_imm32(EBX, 0x7FFFFF); // 6
-   mov_reg32_preg32pimm32(EAX, EBX, ((unsigned int)rdram)+4); // 6
-   mov_reg32_preg32pimm32(ECX, EBX, ((unsigned int)rdram)); // 6
+   and_reg32_imm32(EBX, RDRAM_MAX_SIZE-1); // 6
+   mov_reg32_preg32pimm32(EAX, EBX, ((unsigned int)g_rdram.ram)+4); // 6
+   mov_reg32_preg32pimm32(ECX, EBX, ((unsigned int)g_rdram.ram)); // 6
    mov_reg32_m32(EBX, (unsigned int*)(&reg_cop1_double[dst->f.lf.ft])); // 6
    mov_preg32_reg32(EBX, EAX); // 2
    mov_preg32pimm32_reg32(EBX, 4, ECX); // 6
@@ -1851,9 +1851,9 @@ void genld(void)
    mov_reg32_m32(ECX, (unsigned int *)(dst->f.i.rt)+1); // 6
    jmp_imm_short(18); // 2
    
-   and_reg32_imm32(EBX, 0x7FFFFF); // 6
-   mov_reg32_preg32pimm32(EAX, EBX, ((unsigned int)rdram)+4); // 6
-   mov_reg32_preg32pimm32(ECX, EBX, ((unsigned int)rdram)); // 6
+   and_reg32_imm32(EBX, RDRAM_MAX_SIZE-1); // 6
+   mov_reg32_preg32pimm32(EAX, EBX, ((unsigned int)g_rdram.ram)+4); // 6
+   mov_reg32_preg32pimm32(ECX, EBX, ((unsigned int)g_rdram.ram)); // 6
    
    set_64_register_state(EAX, ECX, (unsigned int*)dst->f.i.rt, 1);
 #endif
@@ -1894,8 +1894,8 @@ void genswc1(void)
    jmp_imm_short(14); // 2
    
    mov_reg32_reg32(EAX, EBX); // 2
-   and_reg32_imm32(EBX, 0x7FFFFF); // 6
-   mov_preg32pimm32_reg32(EBX, (unsigned int)rdram, ECX); // 6
+   and_reg32_imm32(EBX, RDRAM_MAX_SIZE-1); // 6
+   mov_preg32pimm32_reg32(EBX, (unsigned int)g_rdram.ram, ECX); // 6
    
    mov_reg32_reg32(EBX, EAX);
    shr_reg32_imm8(EBX, 12);
@@ -1953,9 +1953,9 @@ void gensdc1(void)
    jmp_imm_short(20); // 2
    
    mov_reg32_reg32(EAX, EBX); // 2
-   and_reg32_imm32(EBX, 0x7FFFFF); // 6
-   mov_preg32pimm32_reg32(EBX, ((unsigned int)rdram)+4, ECX); // 6
-   mov_preg32pimm32_reg32(EBX, ((unsigned int)rdram)+0, EDX); // 6
+   and_reg32_imm32(EBX, RDRAM_MAX_SIZE-1); // 6
+   mov_preg32pimm32_reg32(EBX, ((unsigned int)g_rdram.ram)+4, ECX); // 6
+   mov_preg32pimm32_reg32(EBX, ((unsigned int)g_rdram.ram)+0, EDX); // 6
    
    mov_reg32_reg32(EBX, EAX);
    shr_reg32_imm8(EBX, 12);
@@ -2013,9 +2013,9 @@ void gensd(void)
    jmp_imm_short(20); // 2
    
    mov_reg32_reg32(EAX, EBX); // 2
-   and_reg32_imm32(EBX, 0x7FFFFF); // 6
-   mov_preg32pimm32_reg32(EBX, ((unsigned int)rdram)+4, ECX); // 6
-   mov_preg32pimm32_reg32(EBX, ((unsigned int)rdram)+0, EDX); // 6
+   and_reg32_imm32(EBX, RDRAM_MAX_SIZE-1); // 6
+   mov_preg32pimm32_reg32(EBX, ((unsigned int)g_rdram.ram)+4, ECX); // 6
+   mov_preg32pimm32_reg32(EBX, ((unsigned int)g_rdram.ram)+0, EDX); // 6
    
    mov_reg32_reg32(EBX, EAX);
    shr_reg32_imm8(EBX, 12);

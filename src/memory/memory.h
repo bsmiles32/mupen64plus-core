@@ -23,6 +23,7 @@
 #define MEMORY_H
 
 #include "osal/preproc.h"
+#include "rdram/controller.h"
 
 int init_memory(int DoByteSwap);
 void free_memory(void);
@@ -41,7 +42,7 @@ extern unsigned char *SP_IMEMb;
 extern unsigned int PIF_RAM[0x40/4];
 extern unsigned char *PIF_RAMb;
 
-extern ALIGN(16, unsigned int rdram[0x800000/4]);
+extern ALIGN(16, struct rdram_controller g_rdram);
 
 extern unsigned int address, word;
 extern unsigned char cpu_byte;
@@ -57,31 +58,15 @@ extern void (*writememb[0x10000])(void);
 extern void (*writememh[0x10000])(void);
 extern void (*writememd[0x10000])(void);
 
-extern unsigned int *readrdramreg[0x10000];
 extern unsigned int *readrspreg[0x10000];
 extern unsigned int *readrsp[0x10000];
 extern unsigned int *readmi[0x10000];
 extern unsigned int *readvi[0x10000];
 extern unsigned int *readai[0x10000];
 extern unsigned int *readpi[0x10000];
-extern unsigned int *readri[0x10000];
 extern unsigned int *readsi[0x10000];
 extern unsigned int *readdp[0x10000];
 extern unsigned int *readdps[0x10000];
-
-typedef struct _RDRAM_register
-{
-   unsigned int rdram_config;
-   unsigned int rdram_device_id;
-   unsigned int rdram_delay;
-   unsigned int rdram_mode;
-   unsigned int rdram_ref_interval;
-   unsigned int rdram_ref_row;
-   unsigned int rdram_ras_interval;
-   unsigned int rdram_min_interval;
-   unsigned int rdram_addr_select;
-   unsigned int rdram_device_manuf;
-} RDRAM_register;
 
 typedef struct _SP_register
 {
@@ -183,18 +168,6 @@ typedef struct _PI_register
    unsigned int pi_bsd_dom2_rls_reg;
 } PI_register;
 
-typedef struct _RI_register
-{
-   unsigned int ri_mode;
-   unsigned int ri_config;
-   unsigned int ri_current_load;
-   unsigned int ri_select;
-   unsigned int ri_refresh;
-   unsigned int ri_latency;
-   unsigned int ri_error;
-   unsigned int ri_werror;
-} RI_register;
-
 typedef struct _SI_register
 {
    unsigned int si_dram_addr;
@@ -203,19 +176,15 @@ typedef struct _SI_register
    unsigned int si_stat;
 } SI_register;
 
-extern RDRAM_register rdram_register;
 extern PI_register pi_register;
 extern mips_register MI_register;
 extern SP_register sp_register;
 extern SI_register si_register;
 extern VI_register vi_register;
 extern RSP_register rsp_register;
-extern RI_register ri_register;
 extern AI_register ai_register;
 extern DPC_register dpc_register;
 extern DPS_register dps_register;
-
-extern unsigned char *const rdramb;
 
 extern unsigned int CIC_Chip;
 
