@@ -24,6 +24,8 @@
 
 #include "osal/preproc.h"
 #include "rdram/controller.h"
+#include "ai/controller.h"
+#include "vi/controller.h"
 
 int init_memory(int DoByteSwap);
 void free_memory(void);
@@ -44,6 +46,7 @@ extern unsigned char *PIF_RAMb;
 
 extern ALIGN(16, struct rdram_controller g_rdram);
 extern struct ai_controller g_ai;
+extern struct vi_controller g_vi;
 
 extern unsigned int address, word;
 extern unsigned char cpu_byte;
@@ -62,7 +65,6 @@ extern void (*writememd[0x10000])(void);
 extern unsigned int *readrspreg[0x10000];
 extern unsigned int *readrsp[0x10000];
 extern unsigned int *readmi[0x10000];
-extern unsigned int *readvi[0x10000];
 extern unsigned int *readai[0x10000];
 extern unsigned int *readpi[0x10000];
 extern unsigned int *readsi[0x10000];
@@ -119,25 +121,6 @@ typedef struct _mips_register
    unsigned int w_mi_intr_mask_reg;
 } mips_register;
 
-typedef struct _VI_register
-{
-   unsigned int vi_status;
-   unsigned int vi_origin;
-   unsigned int vi_width;
-   unsigned int vi_v_intr;
-   unsigned int vi_current;
-   unsigned int vi_burst;
-   unsigned int vi_v_sync;
-   unsigned int vi_h_sync;
-   unsigned int vi_leap;
-   unsigned int vi_h_start;
-   unsigned int vi_v_start;
-   unsigned int vi_v_burst;
-   unsigned int vi_x_scale;
-   unsigned int vi_y_scale;
-   unsigned int vi_delay;
-} VI_register;
-
 typedef struct _PI_register
 {
    unsigned int pi_dram_addr_reg;
@@ -167,7 +150,6 @@ extern PI_register pi_register;
 extern mips_register MI_register;
 extern SP_register sp_register;
 extern SI_register si_register;
-extern VI_register vi_register;
 extern RSP_register rsp_register;
 extern DPC_register dpc_register;
 extern DPS_register dps_register;
@@ -360,9 +342,6 @@ void make_w_mi_init_mode_reg(void);
 void update_MI_intr_mode_reg(void);
 void update_MI_init_mask_reg(void);
 void make_w_mi_intr_mask_reg(void);
-void update_ai_dacrate(unsigned int word);
-void update_vi_status(unsigned int word);
-void update_vi_width(unsigned int word);
 
 /* Returns a pointer to a block of contiguous memory
  * Can access RDRAM, SP_DMEM, SP_IMEM and ROM, using TLB if necessary

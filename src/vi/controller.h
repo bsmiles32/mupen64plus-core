@@ -1,7 +1,7 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- *   Mupen64plus - interupt.h                                              *
+ *   Mupen64plus - controller.h                                            *
  *   Mupen64Plus homepage: http://code.google.com/p/mupen64plus/           *
- *   Copyright (C) 2002 Hacktarux                                          *
+ *   Copyright (C) 2014 Bobby Smiles                                       *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -19,40 +19,55 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.          *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#ifndef M64P_R4300_INTERUPT_H
-#define M64P_R4300_INTERUPT_H
+#ifndef M64P_VI_CONTROLLER_H
+#define M64P_VI_CONTROLLER_H
 
-void init_interupt(void);
+#include <stdint.h>
 
-extern unsigned int next_vi;
+/**
+ * Video Interface registers 
+ **/
+enum vi_registers
+{
+    VI_STATUS_REG,
+    VI_ORIGIN_REG,
+    VI_WIDTH_REG,
+    VI_V_INTR_REG,
+    VI_CURRENT_REG,
+    VI_BURST_REG,
+    VI_V_SYNC_REG,
+    VI_H_SYNC_REG,
+    VI_LEAP_REG,
+    VI_H_START_REG,
+    VI_V_START_REG,
+    VI_V_BURST_REG,
+    VI_X_SCALE_REG,
+    VI_Y_SCALE_REG,
+    VI_REGS_COUNT
+};
 
-// set to avoid savestates/reset if state may be inconsistent
-// (e.g. in the middle of an instruction)
-extern int interupt_unsafe_state;
+/**
+ * Controller
+ **/
+struct vi_controller
+{
+    uint32_t regs[VI_REGS_COUNT];
+    unsigned int duration;
+    unsigned int field;
+};
 
-void gen_interupt(void);
-void check_interupt(void);
 
-void translate_event_queue(unsigned int base);
-void remove_event(int type);
-void add_interupt_event_count(int type, unsigned int count);
-void add_interupt_event(int type, unsigned int delay);
-unsigned int get_event(int type);
-int get_next_event_type(void);
 
-int save_eventqueue_infos(char *buf);
-void load_eventqueue_infos(char *buf);
+int init_vi(struct vi_controller* vi);
 
-#define VI_INT      0x001
-#define COMPARE_INT 0x002
-#define CHECK_INT   0x004
-#define SI_INT      0x008
-#define PI_INT      0x010
-#define SPECIAL_INT 0x020
-#define AI_INT      0x040
-#define SP_INT      0x080
-#define DP_INT      0x100
-#define HW2_INT     0x200
-#define NMI_INT     0x400
 
-#endif /* M64P_R4300_INTERUPT_H */
+int read_vi_regs(struct vi_controller* vi,
+                 uint32_t address, uint32_t* value);
+int write_vi_regs(struct vi_controller* vi,
+                  uint32_t address, uint32_t value, uint32_t mask);
+
+void gfx_vi_status_changed(void);
+void gfx_vi_width_changed(void);
+
+#endif
+

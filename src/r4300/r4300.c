@@ -30,6 +30,7 @@
 #include "main/rom.h"
 
 #include "ai/controller.h"
+#include "vi/controller.h"
 
 #include "r4300.h"
 #include "cached_interp.h"
@@ -199,9 +200,9 @@ void r4300_reset_soft(void)
     g_ai.regs[AI_DRAM_ADDR_REG] = 0;
     g_ai.regs[AI_LEN_REG] = 0;
 
-    vi_register.vi_v_intr = 1023;
-    vi_register.vi_current = 0;
-    vi_register.vi_h_start = 0;
+    g_vi.regs[VI_V_INTR_REG] = 1023;
+    g_vi.regs[VI_CURRENT_REG] = 0;
+    g_vi.regs[VI_H_START_REG] = 0;
 
     MI_register.mi_intr_reg &= ~(0x10 | 0x8 | 0x4 | 0x1);
 

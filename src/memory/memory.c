@@ -47,6 +47,7 @@
 #include "r4300/tlb.h"
 
 #include "rdram/controller.h"
+#include "vi/controller.h"
 
 #include "api/callbacks.h"
 #include "main/main.h"
@@ -68,7 +69,6 @@ PI_register pi_register;
 SP_register sp_register;
 RSP_register rsp_register;
 SI_register si_register;
-VI_register vi_register;
 DPC_register dpc_register;
 DPS_register dps_register;
 
@@ -76,6 +76,7 @@ unsigned int CIC_Chip;
 
 ALIGN(16, struct rdram_controller g_rdram);
 struct ai_controller g_ai;
+struct vi_controller g_vi;
 
 unsigned int SP_DMEM[0x1000/4*2];
 unsigned int *SP_IMEM = SP_DMEM+0x1000/4;
@@ -125,7 +126,6 @@ void (*writememh[0x10000])(void);
 unsigned int *readrspreg[0x10000];
 unsigned int *readrsp[0x10000];
 unsigned int *readmi[0x10000];
-unsigned int *readvi[0x10000];
 unsigned int *readpi[0x10000];
 unsigned int *readsi[0x10000];
 unsigned int *readdp[0x10000];
@@ -550,7 +550,9 @@ int init_memory(int DoByteSwap)
         writememd[0xa430+i] = write_nothingd;
     }
 
-    //init VI registers
+    init_vi(&g_vi);
+
+    /* map VI registers */
     readmem[0x8440] = read_vi;
     readmem[0xa440] = read_vi;
     readmemb[0x8440] = read_vib;
@@ -567,36 +569,6 @@ int init_memory(int DoByteSwap)
     writememh[0xa440] = write_vih;
     writememd[0x8440] = write_vid;
     writememd[0xa440] = write_vid;
-    vi_register.vi_status = 0;
-    vi_register.vi_origin = 0;
-    vi_register.vi_width = 0;
-    vi_register.vi_v_intr = 0;
-    vi_register.vi_current = 0;
-    vi_register.vi_burst = 0;
-    vi_register.vi_v_sync = 0;
-    vi_register.vi_h_sync = 0;
-    vi_register.vi_leap = 0;
-    vi_register.vi_h_start = 0;
-    vi_register.vi_v_start = 0;
-    vi_register.vi_v_burst = 0;
-    vi_register.vi_x_scale = 0;
-    vi_register.vi_y_scale = 0;
-    readvi[0x0] = &vi_register.vi_status;
-    readvi[0x4] = &vi_register.vi_origin;
-    readvi[0x8] = &vi_register.vi_width;
-    readvi[0xc] = &vi_register.vi_v_intr;
-    readvi[0x10] = &vi_register.vi_current;
-    readvi[0x14] = &vi_register.vi_burst;
-    readvi[0x18] = &vi_register.vi_v_sync;
-    readvi[0x1c] = &vi_register.vi_h_sync;
-    readvi[0x20] = &vi_register.vi_leap;
-    readvi[0x24] = &vi_register.vi_h_start;
-    readvi[0x28] = &vi_register.vi_v_start;
-    readvi[0x2c] = &vi_register.vi_v_burst;
-    readvi[0x30] = &vi_register.vi_x_scale;
-    readvi[0x34] = &vi_register.vi_y_scale;
-
-    for (i=0x38; i<0x10000; i++) readvi[i] = &trash;
     for (i=1; i<0x10; i++)
     {
         readmem[0x8440+i] = read_nothing;
@@ -2579,213 +2551,67 @@ void write_mid(void)
 
 void read_vi(void)
 {
-    switch (*address_low)
-    {
-    case 0x10:
-        update_count();
-        vi_register.vi_current = (vi_register.vi_delay-(next_vi-g_cp0_regs[CP0_COUNT_REG]))/1500;
-        vi_register.vi_current = (vi_register.vi_current&(~1))|vi_field;
-        break;
-    }
-    *rdword = *(readvi[*address_low]);
+    uint32_t value;
+
+    read_vi_regs(&g_vi, address, &value);
+    *rdword = value;
 }
 
 void read_vib(void)
 {
-    switch (*address_low)
-    {
-    case 0x10:
-    case 0x11:
-    case 0x12:
-    case 0x13:
-        update_count();
-        vi_register.vi_current = (vi_register.vi_delay-(next_vi-g_cp0_regs[CP0_COUNT_REG]))/1500;
-        vi_register.vi_current = (vi_register.vi_current&(~1))|vi_field;
-        break;
-    }
-    *rdword = *((unsigned char*)readvi[*address_low & 0xfffc]
-                + ((*address_low&3)^S8) );
+    uint32_t value;
+    unsigned shift = bshift(address);
+
+    read_vi_regs(&g_vi, address, &value);
+    *rdword = (value >> shift) & 0xff;
 }
 
 void read_vih(void)
 {
-    switch (*address_low)
-    {
-    case 0x10:
-    case 0x12:
-        update_count();
-        vi_register.vi_current = (vi_register.vi_delay-(next_vi-g_cp0_regs[CP0_COUNT_REG]))/1500;
-        vi_register.vi_current = (vi_register.vi_current&(~1))|vi_field;
-        break;
-    }
-    *rdword = *((unsigned short*)((unsigned char*)readvi[*address_low & 0xfffc]
-                                  + ((*address_low&3)^S16) ));
+    uint32_t value;
+    unsigned shift = hshift(address);
+
+    read_vi_regs(&g_vi, address, &value);
+    *rdword = (value >> shift) & 0xffff;
 }
 
 void read_vid(void)
 {
-    switch (*address_low)
-    {
-    case 0x10:
-        update_count();
-        vi_register.vi_current = (vi_register.vi_delay-(next_vi-g_cp0_regs[CP0_COUNT_REG]))/1500;
-        vi_register.vi_current = (vi_register.vi_current&(~1))|vi_field;
-        break;
-    }
-    *rdword = ((unsigned long long int)(*readvi[*address_low])<<32) |
-              *readvi[*address_low+4];
+    uint32_t w[2];
+
+    read_vi_regs(&g_vi, address    , &w[0]);
+    read_vi_regs(&g_vi, address + 4, &w[1]);
+
+    *rdword = ((uint64_t)w[0] << 32) | w[1];
 }
 
 void write_vi(void)
 {
-    switch (*address_low)
-    {
-    case 0x0:
-        if (vi_register.vi_status != word)
-        {
-            update_vi_status(word);
-        }
-        return;
-        break;
-    case 0x8:
-        if (vi_register.vi_width != word)
-        {
-            update_vi_width(word);
-        }
-        return;
-        break;
-    case 0x10:
-        MI_register.mi_intr_reg &= ~0x8;
-        check_interupt();
-        return;
-        break;
-    }
-    *readvi[*address_low] = word;
-}
-
-void update_vi_status(unsigned int word)
-{
-    vi_register.vi_status = word;
-    gfx.viStatusChanged();
-}
-
-void update_vi_width(unsigned int word)
-{
-    vi_register.vi_width = word;
-    gfx.viWidthChanged();
+    write_vi_regs(&g_vi, address, word, ~0U);
 }
 
 void write_vib(void)
 {
-    int temp;
-    switch (*address_low)
-    {
-    case 0x0:
-    case 0x1:
-    case 0x2:
-    case 0x3:
-        temp = vi_register.vi_status;
-        *((unsigned char*)&temp
-          + ((*address_low&3)^S8) ) = cpu_byte;
-        if (vi_register.vi_status != temp)
-        {
-            update_vi_status(temp);
-        }
-        return;
-        break;
-    case 0x8:
-    case 0x9:
-    case 0xa:
-    case 0xb:
-        temp = vi_register.vi_status;
-        *((unsigned char*)&temp
-          + ((*address_low&3)^S8) ) = cpu_byte;
-        if (vi_register.vi_width != temp)
-        {
-            update_vi_width(temp);
-        }
-        return;
-        break;
-    case 0x10:
-    case 0x11:
-    case 0x12:
-    case 0x13:
-        MI_register.mi_intr_reg &= ~0x8;
-        check_interupt();
-        return;
-        break;
-    }
-    *((unsigned char*)readvi[*address_low & 0xfffc]
-      + ((*address_low&3)^S8) ) = cpu_byte;
+    unsigned shift = bshift(address);
+    uint32_t value = (uint32_t)cpu_byte << shift;
+    uint32_t mask = (uint32_t)0xff << shift;
+
+    write_vi_regs(&g_vi, address, value, mask);
 }
 
 void write_vih(void)
 {
-    int temp;
-    switch (*address_low)
-    {
-    case 0x0:
-    case 0x2:
-        temp = vi_register.vi_status;
-        *((unsigned short*)((unsigned char*)&temp
-                            + ((*address_low&3)^S16) )) = hword;
-        if (vi_register.vi_status != temp)
-        {
-            update_vi_status(temp);
-        }
-        return;
-        break;
-    case 0x8:
-    case 0xa:
-        temp = vi_register.vi_status;
-        *((unsigned short*)((unsigned char*)&temp
-                            + ((*address_low&3)^S16) )) = hword;
-        if (vi_register.vi_width != temp)
-        {
-            update_vi_width(temp);
-        }
-        return;
-        break;
-    case 0x10:
-    case 0x12:
-        MI_register.mi_intr_reg &= ~0x8;
-        check_interupt();
-        return;
-        break;
-    }
-    *((unsigned short*)((unsigned char*)readvi[*address_low & 0xfffc]
-                        + ((*address_low&3)^S16) )) = hword;
+    unsigned shift = hshift(address);
+    uint32_t value = (uint32_t)hword << shift;
+    uint32_t mask = (uint32_t)0xffff << shift;
+
+    write_vi_regs(&g_vi, address, value, mask);
 }
 
 void write_vid(void)
 {
-    switch (*address_low)
-    {
-    case 0x0:
-        if (vi_register.vi_status != dword >> 32)
-        {
-            update_vi_status((unsigned int) (dword >> 32));
-        }
-        vi_register.vi_origin = (unsigned int) (dword & 0xFFFFFFFF);
-        return;
-        break;
-    case 0x8:
-        if (vi_register.vi_width != dword >> 32)
-        {
-            update_vi_width((unsigned int) (dword >> 32));
-        }
-        vi_register.vi_v_intr = (unsigned int) (dword & 0xFFFFFFFF);
-        return;
-        break;
-    case 0x10:
-        MI_register.mi_intr_reg &= ~0x8;
-        check_interupt();
-        vi_register.vi_burst = (unsigned int) (dword & 0xFFFFFFFF);
-        return;
-        break;
-    }
-    *readvi[*address_low] = (unsigned int) (dword >> 32);
-    *readvi[*address_low+4] = (unsigned int) (dword & 0xFFFFFFFF);
+    write_vi_regs(&g_vi, address    , dword >> 32, ~0U);
+    write_vi_regs(&g_vi, address + 4, dword      , ~0U);
 }
 
 void read_ai(void)
