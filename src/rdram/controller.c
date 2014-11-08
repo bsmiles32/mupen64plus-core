@@ -26,6 +26,8 @@
 #include "api/m64p_types.h"
 #include "api/callbacks.h"
 
+#include "memory/memory.h"
+
 static const char* rdram_regs_name[RDRAM_REGS_COUNT] =
 {
     "RDRAM_CONFIG_REG",
@@ -62,13 +64,6 @@ int init_rdram(struct rdram_controller* rdram)
     memset(rdram->ri_regs, 0, RI_REGS_COUNT*sizeof(rdram->ri_regs[0]));
 
     return 0;
-}
-
-
-
-static inline void masked_write(uint32_t* dst, uint32_t value, uint32_t mask)
-{
-    *dst = (mask & value) | (~mask & *dst);
 }
 
 

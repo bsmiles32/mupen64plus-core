@@ -43,6 +43,7 @@ extern unsigned int PIF_RAM[0x40/4];
 extern unsigned char *PIF_RAMb;
 
 extern ALIGN(16, struct rdram_controller g_rdram);
+extern struct ai_controller g_ai;
 
 extern unsigned int address, word;
 extern unsigned char cpu_byte;
@@ -137,20 +138,6 @@ typedef struct _VI_register
    unsigned int vi_delay;
 } VI_register;
 
-typedef struct _AI_register
-{
-   unsigned int ai_dram_addr;
-   unsigned int ai_len;
-   unsigned int ai_control;
-   unsigned int ai_status;
-   unsigned int ai_dacrate;
-   unsigned int ai_bitrate;
-   unsigned int next_delay;
-   unsigned int next_len;
-   unsigned int current_delay;
-   unsigned int current_len;
-} AI_register;
-
 typedef struct _PI_register
 {
    unsigned int pi_dram_addr_reg;
@@ -182,7 +169,6 @@ extern SP_register sp_register;
 extern SI_register si_register;
 extern VI_register vi_register;
 extern RSP_register rsp_register;
-extern AI_register ai_register;
 extern DPC_register dpc_register;
 extern DPS_register dps_register;
 
@@ -382,6 +368,12 @@ void update_vi_width(unsigned int word);
  * Can access RDRAM, SP_DMEM, SP_IMEM and ROM, using TLB if necessary
  * Useful for getting fast access to a zone with executable code. */
 unsigned int *fast_mem_access(unsigned int address);
+
+
+static inline void masked_write(uint32_t* dst, uint32_t value, uint32_t mask)
+{
+    *dst = (mask & value) | (~mask & *dst);
+}
 
 #endif
 

@@ -28,6 +28,7 @@
 #include "api/callbacks.h"
 #include "api/m64p_vidext.h"
 #include "api/vidext.h"
+#include "ai/controller.h"
 #include "memory/memory.h"
 #include "main/rom.h"
 #include "main/main.h"
@@ -541,37 +542,15 @@ void gen_interupt(void)
             break;
     
         case AI_INT:
-            if (ai_register.ai_status & 0x80000000) // full
-            {
-                unsigned int ai_event = get_event(AI_INT);
-                remove_interupt_event();
-                ai_register.ai_status &= ~0x80000000;
-                ai_register.current_delay = ai_register.next_delay;
-                ai_register.current_len = ai_register.next_len;
-                add_interupt_event_count(AI_INT, ai_event+ai_register.next_delay);
-         
-                MI_register.mi_intr_reg |= 0x04;
-                if (MI_register.mi_intr_reg & MI_register.mi_intr_mask_reg)
-                    g_cp0_regs[CP0_CAUSE_REG] = (g_cp0_regs[CP0_CAUSE_REG] | 0x400) & 0xFFFFFF83;
-                else
-                    return;
-                if ((g_cp0_regs[CP0_STATUS_REG] & 7) != 1) return;
-                if (!(g_cp0_regs[CP0_STATUS_REG] & g_cp0_regs[CP0_CAUSE_REG] & 0xFF00)) return;
-            }
+            remove_interupt_event();
+            fifo_pop(&g_ai);
+            MI_register.mi_intr_reg |= 0x4;
+            if (MI_register.mi_intr_reg & MI_register.mi_intr_mask_reg)
+                g_cp0_regs[CP0_CAUSE_REG] = (g_cp0_regs[CP0_CAUSE_REG] | 0x400) & 0xFFFFFF83;
             else
-            {
-                remove_interupt_event();
-                ai_register.ai_status &= ~0x40000000;
-
-                //-------
-                MI_register.mi_intr_reg |= 0x04;
-                if (MI_register.mi_intr_reg & MI_register.mi_intr_mask_reg)
-                    g_cp0_regs[CP0_CAUSE_REG] = (g_cp0_regs[CP0_CAUSE_REG] | 0x400) & 0xFFFFFF83;
-                else
-                    return;
-                if ((g_cp0_regs[CP0_STATUS_REG] & 7) != 1) return;
-                if (!(g_cp0_regs[CP0_STATUS_REG] & g_cp0_regs[CP0_CAUSE_REG] & 0xFF00)) return;
-            }
+                return;
+            if ((g_cp0_regs[CP0_STATUS_REG] & 7) != 1) return;
+            if (!(g_cp0_regs[CP0_STATUS_REG] & g_cp0_regs[CP0_CAUSE_REG] & 0xFF00)) return;
             break;
 
         case SP_INT:
@@ -626,7 +605,7 @@ void gen_interupt(void)
             vi_counter = 0;
             init_interupt();
             // clear the audio status register so that subsequent write_ai() calls will work properly
-            ai_register.ai_status = 0;
+            g_ai.regs[AI_STATUS_REG] = 0;
             // set ErrorEPC with the last instruction address
             g_cp0_regs[CP0_ERROREPC_REG] = PC->addr;
             // reset the r4300 internal state

@@ -36,6 +36,8 @@
 #include "pif.h"
 #include "flashram.h"
 
+#include "ai/controller.h"
+
 #include "r4300/r4300.h"
 #include "r4300/cached_interp.h"
 #include "r4300/cp0.h"
@@ -67,13 +69,13 @@ SP_register sp_register;
 RSP_register rsp_register;
 SI_register si_register;
 VI_register vi_register;
-AI_register ai_register;
 DPC_register dpc_register;
 DPS_register dps_register;
 
 unsigned int CIC_Chip;
 
 ALIGN(16, struct rdram_controller g_rdram);
+struct ai_controller g_ai;
 
 unsigned int SP_DMEM[0x1000/4*2];
 unsigned int *SP_IMEM = SP_DMEM+0x1000/4;
@@ -124,7 +126,6 @@ unsigned int *readrspreg[0x10000];
 unsigned int *readrsp[0x10000];
 unsigned int *readmi[0x10000];
 unsigned int *readvi[0x10000];
-unsigned int *readai[0x10000];
 unsigned int *readpi[0x10000];
 unsigned int *readsi[0x10000];
 unsigned int *readdp[0x10000];
@@ -616,7 +617,9 @@ int init_memory(int DoByteSwap)
         writememd[0xa440+i] = write_nothingd;
     }
 
-    //init AI registers
+    init_ai(&g_ai);
+
+    /* map AI registers */
     readmem[0x8450] = read_ai;
     readmem[0xa450] = read_ai;
     readmemb[0x8450] = read_aib;
@@ -633,24 +636,6 @@ int init_memory(int DoByteSwap)
     writememh[0xa450] = write_aih;
     writememd[0x8450] = write_aid;
     writememd[0xa450] = write_aid;
-    ai_register.ai_dram_addr = 0;
-    ai_register.ai_len = 0;
-    ai_register.ai_control = 0;
-    ai_register.ai_status = 0;
-    ai_register.ai_dacrate = 0;
-    ai_register.ai_bitrate = 0;
-    ai_register.next_delay = 0;
-    ai_register.next_len = 0;
-    ai_register.current_delay = 0;
-    ai_register.current_len = 0;
-    readai[0x0] = &ai_register.ai_dram_addr;
-    readai[0x4] = &ai_register.ai_len;
-    readai[0x8] = &ai_register.ai_control;
-    readai[0xc] = &ai_register.ai_status;
-    readai[0x10] = &ai_register.ai_dacrate;
-    readai[0x14] = &ai_register.ai_bitrate;
-
-    for (i=0x18; i<0x10000; i++) readai[i] = &trash;
     for (i=1; i<0x10; i++)
     {
         readmem[0x8450+i] = read_nothing;
@@ -2805,297 +2790,67 @@ void write_vid(void)
 
 void read_ai(void)
 {
-    switch (*address_low)
-    {
-    case 0x4:
-        update_count();
-        if (ai_register.current_delay != 0 && get_event(AI_INT) != 0 && (get_event(AI_INT)-g_cp0_regs[CP0_COUNT_REG]) < 0x80000000)
-            *rdword = ((get_event(AI_INT)-g_cp0_regs[CP0_COUNT_REG])*(long long)ai_register.current_len)/
-                      ai_register.current_delay;
-        else
-            *rdword = 0;
-        return;
-        break;
-    }
-    *rdword = *(readai[*address_low]);
+    uint32_t value;
+
+    read_ai_regs(&g_ai, address, &value);
+    *rdword = value;
 }
 
 void read_aib(void)
 {
-    unsigned int len;
-    switch (*address_low)
-    {
-    case 0x4:
-    case 0x5:
-    case 0x6:
-    case 0x7:
-        update_count();
-        if (ai_register.current_delay != 0 && get_event(AI_INT) != 0)
-            len = (unsigned int) (((get_event(AI_INT) - g_cp0_regs[CP0_COUNT_REG]) * (long long)ai_register.current_len) / ai_register.current_delay);
-        else
-            len = 0;
-        *rdword = *((unsigned char*)&len + ((*address_low&3)^S8) );
-        return;
-        break;
-    }
-    *rdword = *((unsigned char*)readai[*address_low & 0xfffc]
-                + ((*address_low&3)^S8) );
+    uint32_t value;
+    unsigned shift = bshift(address);
+
+    read_ai_regs(&g_ai, address, &value);
+    *rdword = (value >> shift) & 0xff;
 }
 
 void read_aih(void)
 {
-    unsigned int len;
-    switch (*address_low)
-    {
-    case 0x4:
-    case 0x6:
-        update_count();
-        if (ai_register.current_delay != 0 && get_event(AI_INT) != 0)
-            len = (unsigned int) (((get_event(AI_INT)-g_cp0_regs[CP0_COUNT_REG]) * (long long)ai_register.current_len) / ai_register.current_delay);
-        else
-            len = 0;
-        *rdword = *((unsigned short*)((unsigned char*)&len
-                                      + ((*address_low&3)^S16) ));
-        return;
-        break;
-    }
-    *rdword = *((unsigned short*)((unsigned char*)readai[*address_low & 0xfffc]
-                                  + ((*address_low&3)^S16) ));
+    uint32_t value;
+    unsigned shift = hshift(address);
+
+    read_ai_regs(&g_ai, address, &value);
+    *rdword = (value >> shift) & 0xffff;
 }
 
 void read_aid(void)
 {
-    switch (*address_low)
-    {
-    case 0x0:
-        update_count();
-        if (ai_register.current_delay != 0 && get_event(AI_INT) != 0)
-            *rdword = ((get_event(AI_INT)-g_cp0_regs[CP0_COUNT_REG])*(long long)ai_register.current_len)/
-                      ai_register.current_delay;
-        else
-            *rdword = 0;
-        *rdword |= (unsigned long long)ai_register.ai_dram_addr << 32;
-        return;
-        break;
-    }
-    *rdword = ((unsigned long long int)(*readai[*address_low])<<32) |
-              *readai[*address_low+4];
+    uint32_t w[2];
+
+    read_ai_regs(&g_ai, address    , &w[0]);
+    read_ai_regs(&g_ai, address + 4, &w[1]);
+
+    *rdword = ((uint64_t)w[0] << 32) | w[1];
 }
 
 void write_ai(void)
 {
-    unsigned int freq,delay=0;
-    switch (*address_low)
-    {
-    case 0x4:
-        ai_register.ai_len = word;
-        audio.aiLenChanged();
-
-        freq = ROM_PARAMS.aidacrate / (ai_register.ai_dacrate+1);
-        if (freq)
-            delay = (unsigned int) (((unsigned long long)ai_register.ai_len*vi_register.vi_delay*ROM_PARAMS.vilimit)/(freq*4));
-
-        if (ai_register.ai_status & 0x40000000) // busy
-        {
-            ai_register.next_delay = delay;
-            ai_register.next_len = ai_register.ai_len;
-            ai_register.ai_status |= 0x80000000;
-        }
-        else
-        {
-            ai_register.current_delay = delay;
-            ai_register.current_len = ai_register.ai_len;
-            update_count();
-            add_interupt_event(AI_INT, delay);
-            ai_register.ai_status |= 0x40000000;
-        }
-        return;
-        break;
-    case 0xc:
-        MI_register.mi_intr_reg &= ~0x4;
-        check_interupt();
-        return;
-        break;
-    case 0x10:
-        if (ai_register.ai_dacrate != word)
-        {
-            update_ai_dacrate(word);
-        }
-        return;
-        break;
-    }
-    *readai[*address_low] = word;
-}
-
-void update_ai_dacrate(unsigned int word)
-{
-    ai_register.ai_dacrate = word;
-    audio.aiDacrateChanged(ROM_PARAMS.systemtype);
+    write_ai_regs(&g_ai, address, word, ~0U);
 }
 
 void write_aib(void)
 {
-    int temp;
-    unsigned int delay=0;
-    switch (*address_low)
-    {
-    case 0x4:
-    case 0x5:
-    case 0x6:
-    case 0x7:
-        temp = ai_register.ai_len;
-        *((unsigned char*)&temp
-          + ((*address_low&3)^S8) ) = cpu_byte;
-        ai_register.ai_len = temp;
-        audio.aiLenChanged();
+    unsigned shift = bshift(address);
+    uint32_t value = (uint32_t)cpu_byte << shift;
+    uint32_t mask = (uint32_t)0xff << shift;
 
-        delay = (unsigned int) (((unsigned long long)ai_register.ai_len*(ai_register.ai_dacrate+1)*
-                                    vi_register.vi_delay*ROM_PARAMS.vilimit)/ROM_PARAMS.aidacrate);
-        //delay = 0;
-
-        if (ai_register.ai_status & 0x40000000) // busy
-        {
-            ai_register.next_delay = delay;
-            ai_register.next_len = ai_register.ai_len;
-            ai_register.ai_status |= 0x80000000;
-        }
-        else
-        {
-            ai_register.current_delay = delay;
-            ai_register.current_len = ai_register.ai_len;
-            update_count();
-            add_interupt_event(AI_INT, delay/2);
-            ai_register.ai_status |= 0x40000000;
-        }
-        return;
-        break;
-    case 0xc:
-    case 0xd:
-    case 0xe:
-    case 0xf:
-        MI_register.mi_intr_reg &= ~0x4;
-        check_interupt();
-        return;
-        break;
-    case 0x10:
-    case 0x11:
-    case 0x12:
-    case 0x13:
-        temp = ai_register.ai_dacrate;
-        *((unsigned char*)&temp
-          + ((*address_low&3)^S8) ) = cpu_byte;
-        if (ai_register.ai_dacrate != temp)
-        {
-            update_ai_dacrate(temp);
-        }
-        return;
-        break;
-    }
-    *((unsigned char*)readai[*address_low & 0xfffc]
-      + ((*address_low&3)^S8) ) = cpu_byte;
+    write_ai_regs(&g_ai, address, value, mask);
 }
 
 void write_aih(void)
 {
-    int temp;
-    unsigned int delay=0;
-    switch (*address_low)
-    {
-    case 0x4:
-    case 0x6:
-        temp = ai_register.ai_len;
-        *((unsigned short*)((unsigned char*)&temp
-                            + ((*address_low&3)^S16) )) = hword;
-        ai_register.ai_len = temp;
-        audio.aiLenChanged();
+    unsigned shift = hshift(address);
+    uint32_t value = (uint32_t)hword << shift;
+    uint32_t mask = (uint32_t)0xffff << shift;
 
-        delay = (unsigned int) (((unsigned long long)ai_register.ai_len*(ai_register.ai_dacrate+1)*
-                                    vi_register.vi_delay*ROM_PARAMS.vilimit)/ROM_PARAMS.aidacrate);
-
-        if (ai_register.ai_status & 0x40000000) // busy
-        {
-            ai_register.next_delay = delay;
-            ai_register.next_len = ai_register.ai_len;
-            ai_register.ai_status |= 0x80000000;
-        }
-        else
-        {
-            ai_register.current_delay = delay;
-            ai_register.current_len = ai_register.ai_len;
-            update_count();
-            add_interupt_event(AI_INT, delay/2);
-            ai_register.ai_status |= 0x40000000;
-        }
-        return;
-        break;
-    case 0xc:
-    case 0xe:
-        MI_register.mi_intr_reg &= ~0x4;
-        check_interupt();
-        return;
-        break;
-    case 0x10:
-    case 0x12:
-        temp = ai_register.ai_dacrate;
-        *((unsigned short*)((unsigned char*)&temp
-                            + ((*address_low&3)^S16) )) = hword;
-        if (ai_register.ai_dacrate != temp)
-        {
-            update_ai_dacrate(temp);
-        }
-        return;
-        break;
-    }
-    *((unsigned short*)((unsigned char*)readai[*address_low & 0xfffc]
-                        + ((*address_low&3)^S16) )) = hword;
+    write_ai_regs(&g_ai, address, value, mask);
 }
 
 void write_aid(void)
 {
-    unsigned int delay=0;
-    switch (*address_low)
-    {
-    case 0x0:
-        ai_register.ai_dram_addr = (unsigned int) (dword >> 32);
-        ai_register.ai_len = (unsigned int) (dword & 0xFFFFFFFF);
-        audio.aiLenChanged();
-
-        delay = (unsigned int) (((unsigned long long)ai_register.ai_len*(ai_register.ai_dacrate+1)*
-                                    vi_register.vi_delay*ROM_PARAMS.vilimit)/ROM_PARAMS.aidacrate);
-
-        if (ai_register.ai_status & 0x40000000) // busy
-        {
-            ai_register.next_delay = delay;
-            ai_register.next_len = ai_register.ai_len;
-            ai_register.ai_status |= 0x80000000;
-        }
-        else
-        {
-            ai_register.current_delay = delay;
-            ai_register.current_len = ai_register.ai_len;
-            update_count();
-            add_interupt_event(AI_INT, delay/2);
-            ai_register.ai_status |= 0x40000000;
-        }
-        return;
-        break;
-    case 0x8:
-        ai_register.ai_control = (unsigned int) (dword >> 32);
-        MI_register.mi_intr_reg &= ~0x4;
-        check_interupt();
-        return;
-        break;
-    case 0x10:
-        if (ai_register.ai_dacrate != dword >> 32)
-        {
-            update_ai_dacrate((unsigned int) (dword >> 32));
-        }
-        ai_register.ai_bitrate = (unsigned int) (dword & 0xFFFFFFFF);
-        return;
-        break;
-    }
-    *readai[*address_low] = (unsigned int) (dword >> 32);
-    *readai[*address_low+4] = (unsigned int) (dword & 0xFFFFFFFF);
+    write_ai_regs(&g_ai, address    , dword >> 32, ~0U);
+    write_ai_regs(&g_ai, address + 4, dword      , ~0U);
 }
 
 void read_pi(void)

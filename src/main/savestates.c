@@ -31,6 +31,7 @@
 #include "api/callbacks.h"
 #include "api/m64p_config.h"
 #include "api/config.h"
+#include "api/m64p_plugin.h"
 
 #include "savestates.h"
 #include "main.h"
@@ -38,6 +39,7 @@
 #include "util.h"
 #include "workqueue.h"
 
+#include "ai/controller.h"
 #include "memory/memory.h"
 #include "memory/flashram.h"
 #include "r4300/tlb.h"
@@ -350,17 +352,17 @@ static int savestates_load_m64p(char *filepath)
     g_rdram.ri_regs[RI_ERROR_REG] = GETDATA(curr, uint32_t);
     g_rdram.ri_regs[RI_WERROR_REG] = GETDATA(curr, uint32_t);
 
-    ai_register.ai_dram_addr = GETDATA(curr, unsigned int);
-    ai_register.ai_len = GETDATA(curr, unsigned int);
-    ai_register.ai_control = GETDATA(curr, unsigned int);
-    ai_register.ai_status = GETDATA(curr, unsigned int);
-    ai_register.ai_dacrate = GETDATA(curr, unsigned int);
-    ai_register.ai_bitrate = GETDATA(curr, unsigned int);
-    ai_register.next_delay = GETDATA(curr, unsigned int);
-    ai_register.next_len = GETDATA(curr, unsigned int);
-    ai_register.current_delay = GETDATA(curr, unsigned int);
-    ai_register.current_len = GETDATA(curr, unsigned int);
-    update_ai_dacrate(ai_register.ai_dacrate);
+    g_ai.regs[AI_DRAM_ADDR_REG] = GETDATA(curr, uint32_t);
+    g_ai.regs[AI_LEN_REG] = GETDATA(curr, uint32_t);
+    g_ai.regs[AI_CONTROL_REG] = GETDATA(curr, uint32_t);
+    g_ai.regs[AI_STATUS_REG] = GETDATA(curr, uint32_t);
+    g_ai.regs[AI_DACRATE_REG] = GETDATA(curr, uint32_t);
+    g_ai.regs[AI_BITRATE_REG] = GETDATA(curr, uint32_t);
+    g_ai.fifo[1].duration = GETDATA(curr, unsigned int);
+    g_ai.fifo[1].length = GETDATA(curr, uint32_t);
+    g_ai.fifo[0].duration = GETDATA(curr, unsigned int);
+    g_ai.fifo[0].length = GETDATA(curr, uint32_t);
+    audio_ai_dacrate_changed();
 
     dpc_register.dpc_start = GETDATA(curr, unsigned int);
     dpc_register.dpc_end = GETDATA(curr, unsigned int);
@@ -642,13 +644,13 @@ static int savestates_load_pj64(char *filepath, void *handle,
     update_vi_width(vi_register.vi_width);
 
     // ai_register
-    ai_register.ai_dram_addr = GETDATA(curr, unsigned int);
-    ai_register.ai_len = GETDATA(curr, unsigned int);
-    ai_register.ai_control = GETDATA(curr, unsigned int);
-    ai_register.ai_status = GETDATA(curr, unsigned int);
-    ai_register.ai_dacrate = GETDATA(curr, unsigned int);
-    ai_register.ai_bitrate = GETDATA(curr, unsigned int);
-    update_ai_dacrate(ai_register.ai_dacrate);
+    g_ai.regs[AI_DRAM_ADDR_REG] = GETDATA(curr, uint32_t);
+    g_ai.regs[AI_LEN_REG] = GETDATA(curr, uint32_t);
+    g_ai.regs[AI_CONTROL_REG] = GETDATA(curr, uint32_t);
+    g_ai.regs[AI_STATUS_REG] = GETDATA(curr, uint32_t);
+    g_ai.regs[AI_DACRATE_REG] = GETDATA(curr, uint32_t);
+    g_ai.regs[AI_BITRATE_REG] = GETDATA(curr, uint32_t);
+    audio_ai_dacrate_changed();
 
     // pi_register
     pi_register.pi_dram_addr_reg = GETDATA(curr, unsigned int);
@@ -1130,16 +1132,16 @@ static int savestates_save_m64p(char *filepath)
     PUTDATA(curr, uint32_t, g_rdram.ri_regs[RI_ERROR_REG]);
     PUTDATA(curr, uint32_t, g_rdram.ri_regs[RI_WERROR_REG]);
 
-    PUTDATA(curr, unsigned int, ai_register.ai_dram_addr);
-    PUTDATA(curr, unsigned int, ai_register.ai_len);
-    PUTDATA(curr, unsigned int, ai_register.ai_control);
-    PUTDATA(curr, unsigned int, ai_register.ai_status);
-    PUTDATA(curr, unsigned int, ai_register.ai_dacrate);
-    PUTDATA(curr, unsigned int, ai_register.ai_bitrate);
-    PUTDATA(curr, unsigned int, ai_register.next_delay);
-    PUTDATA(curr, unsigned int, ai_register.next_len);
-    PUTDATA(curr, unsigned int, ai_register.current_delay);
-    PUTDATA(curr, unsigned int, ai_register.current_len);
+    PUTDATA(curr, uint32_t, g_ai.regs[AI_DRAM_ADDR_REG]);
+    PUTDATA(curr, uint32_t, g_ai.regs[AI_LEN_REG]);
+    PUTDATA(curr, uint32_t, g_ai.regs[AI_CONTROL_REG]);
+    PUTDATA(curr, uint32_t, g_ai.regs[AI_STATUS_REG]);
+    PUTDATA(curr, uint32_t, g_ai.regs[AI_DACRATE_REG]);
+    PUTDATA(curr, uint32_t, g_ai.regs[AI_BITRATE_REG]);
+    PUTDATA(curr, uint32_t, g_ai.fifo[1].duration);
+    PUTDATA(curr, uint32_t, g_ai.fifo[1].length);
+    PUTDATA(curr, uint32_t, g_ai.fifo[0].duration);
+    PUTDATA(curr, uint32_t, g_ai.fifo[0].length);
 
     PUTDATA(curr, unsigned int, dpc_register.dpc_start);
     PUTDATA(curr, unsigned int, dpc_register.dpc_end);
@@ -1345,12 +1347,12 @@ static int savestates_save_pj64(char *filepath, void *handle,
     PUTDATA(curr, unsigned int, vi_register.vi_x_scale);
     PUTDATA(curr, unsigned int, vi_register.vi_y_scale);
 
-    PUTDATA(curr, unsigned int, ai_register.ai_dram_addr);
-    PUTDATA(curr, unsigned int, ai_register.ai_len);
-    PUTDATA(curr, unsigned int, ai_register.ai_control);
-    PUTDATA(curr, unsigned int, ai_register.ai_status);
-    PUTDATA(curr, unsigned int, ai_register.ai_dacrate);
-    PUTDATA(curr, unsigned int, ai_register.ai_bitrate);
+    PUTDATA(curr, uint32_t, g_ai.regs[AI_DRAM_ADDR_REG]);
+    PUTDATA(curr, uint32_t, g_ai.regs[AI_LEN_REG]);
+    PUTDATA(curr, uint32_t, g_ai.regs[AI_CONTROL_REG]);
+    PUTDATA(curr, uint32_t, g_ai.regs[AI_STATUS_REG]);
+    PUTDATA(curr, uint32_t, g_ai.regs[AI_DACRATE_REG]);
+    PUTDATA(curr, uint32_t, g_ai.regs[AI_BITRATE_REG]);
 
     PUTDATA(curr, unsigned int, pi_register.pi_dram_addr_reg);
     PUTDATA(curr, unsigned int, pi_register.pi_cart_addr_reg);

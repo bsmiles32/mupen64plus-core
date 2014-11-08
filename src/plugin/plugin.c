@@ -29,6 +29,8 @@
 #include "api/m64p_plugin.h"
 #include "api/m64p_types.h"
 
+#include "ai/controller.h"
+
 #include "main/rom.h"
 #include "main/version.h"
 #include "memory/memory.h"
@@ -321,12 +323,12 @@ static m64p_error plugin_start_audio(void)
     audio_info.DMEM = (unsigned char *) SP_DMEM;
     audio_info.IMEM = (unsigned char *) SP_IMEM;
     audio_info.MI_INTR_REG = &(MI_register.mi_intr_reg);
-    audio_info.AI_DRAM_ADDR_REG = &(ai_register.ai_dram_addr);
-    audio_info.AI_LEN_REG = &(ai_register.ai_len);
-    audio_info.AI_CONTROL_REG = &(ai_register.ai_control);
+    audio_info.AI_DRAM_ADDR_REG = &(g_ai.regs[AI_DRAM_ADDR_REG]);
+    audio_info.AI_LEN_REG = &(g_ai.regs[AI_LEN_REG]);
+    audio_info.AI_CONTROL_REG = &(g_ai.regs[AI_CONTROL_REG]);
     audio_info.AI_STATUS_REG = &dummy;
-    audio_info.AI_DACRATE_REG = &(ai_register.ai_dacrate);
-    audio_info.AI_BITRATE_REG = &(ai_register.ai_bitrate);
+    audio_info.AI_DACRATE_REG = &(g_ai.regs[AI_DACRATE_REG]);
+    audio_info.AI_BITRATE_REG = &(g_ai.regs[AI_BITRATE_REG]);
     audio_info.CheckInterrupts = EmptyFunc;
 
     /* call the audio plugin */
