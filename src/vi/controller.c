@@ -32,7 +32,7 @@
 #include "r4300/interupt.h"
 #include "r4300/mi.h"
 
-
+#if 0
 static const char* vi_regs_name[VI_REGS_COUNT] =
 {
     "VI_STATUS_REG",
@@ -50,6 +50,7 @@ static const char* vi_regs_name[VI_REGS_COUNT] =
     "VI_X_SCALE_REG",
     "VI_Y_SCALE_REG"
 };
+#endif
 
 
 int init_vi(struct vi_controller* vi)

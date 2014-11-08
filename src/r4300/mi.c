@@ -32,7 +32,7 @@
 #include "r4300/interupt.h"
 
 
-
+#if 0
 static const char* mi_regs_name[MI_REGS_COUNT] =
 {
     "MI_INIT_MODE_REG",
@@ -40,6 +40,7 @@ static const char* mi_regs_name[MI_REGS_COUNT] =
     "MI_INTR_REG",
     "MI_INTR_MASK_REG"
 };
+#endif
 
 /* initialize MI controller */
 int init_mi(struct mi_controller* mi)

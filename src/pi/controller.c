@@ -31,6 +31,7 @@
 #include "r4300/interupt.h"
 #include "r4300/mi.h"
 
+#if 0
 static const char* pi_regs_name[PI_REGS_COUNT] =
 {
     "PI_DRAM_ADDR_REG",
@@ -47,6 +48,7 @@ static const char* pi_regs_name[PI_REGS_COUNT] =
     "PI_BSD_DOM2_PGS_REG",
     "PI_BSD_DOM2_RLS_REG"
 };
+#endif
 
 
 

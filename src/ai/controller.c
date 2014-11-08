@@ -34,6 +34,7 @@
 #include "r4300/mi.h"
 
 
+#if 0
 static const char* ai_regs_name[AI_REGS_COUNT] =
 {
     "AI_DRAM_ADDR_REG",
@@ -43,6 +44,7 @@ static const char* ai_regs_name[AI_REGS_COUNT] =
     "AI_DACRATE_REG",
     "AI_BITRATE_REG"
 };
+#endif
 
 /**
  * Estimate remaining length of current DMA (if any)

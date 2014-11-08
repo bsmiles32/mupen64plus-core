@@ -28,6 +28,7 @@
 
 #include "memory/memory.h"
 
+#if 0
 static const char* rdram_regs_name[RDRAM_REGS_COUNT] =
 {
     "RDRAM_CONFIG_REG",
@@ -54,6 +55,7 @@ static const char* ri_regs_name[RI_REGS_COUNT] =
     "RI_ERROR_REG",
     "RI_WERROR_REG"
 };
+#endif
 
 
 
