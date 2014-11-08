@@ -39,10 +39,6 @@ void free_memory(void);
 #define write_byte_in_memory() writememb[address >>16]()
 #define write_hword_in_memory() writememh[address >>16]()
 #define write_dword_in_memory() writememd[address >>16]()
-extern unsigned int SP_DMEM[0x1000/4*2];
-extern unsigned char *SP_DMEMb;
-extern unsigned int *SP_IMEM;
-extern unsigned char *SP_IMEMb;
 extern unsigned int PIF_RAM[0x40/4];
 extern unsigned char *PIF_RAMb;
 
@@ -51,6 +47,7 @@ extern struct ai_controller g_ai;
 extern struct mi_controller g_mi;
 extern struct pi_controller g_pi;
 extern struct vi_controller g_vi;
+extern struct rsp_core g_sp;
 
 extern unsigned int address, word;
 extern unsigned char cpu_byte;
@@ -66,30 +63,9 @@ extern void (*writememb[0x10000])(void);
 extern void (*writememh[0x10000])(void);
 extern void (*writememd[0x10000])(void);
 
-extern unsigned int *readrspreg[0x10000];
-extern unsigned int *readrsp[0x10000];
 extern unsigned int *readsi[0x10000];
 extern unsigned int *readdp[0x10000];
 extern unsigned int *readdps[0x10000];
-
-typedef struct _SP_register
-{
-   unsigned int sp_mem_addr_reg;
-   unsigned int sp_dram_addr_reg;
-   unsigned int sp_rd_len_reg;
-   unsigned int sp_wr_len_reg;
-   unsigned int w_sp_status_reg;
-   unsigned int sp_status_reg;
-   unsigned int sp_dma_full_reg;
-   unsigned int sp_dma_busy_reg;
-   unsigned int sp_semaphore_reg;
-} SP_register;
-
-typedef struct _RSP_register
-{
-   unsigned int rsp_pc;
-   unsigned int rsp_ibist;
-} RSP_register;
 
 typedef struct _DPC_register
 {
@@ -120,9 +96,7 @@ typedef struct _SI_register
    unsigned int si_stat;
 } SI_register;
 
-extern SP_register sp_register;
 extern SI_register si_register;
-extern RSP_register rsp_register;
 extern DPC_register dpc_register;
 extern DPS_register dps_register;
 
@@ -173,10 +147,10 @@ void read_rdramreg(void);
 void read_rdramregb(void);
 void read_rdramregh(void);
 void read_rdramregd(void);
-void read_rsp_mem(void);
-void read_rsp_memb(void);
-void read_rsp_memh(void);
-void read_rsp_memd(void);
+void read_rsp_memory(void);
+void read_rsp_memoryb(void);
+void read_rsp_memoryh(void);
+void read_rsp_memoryd(void);
 void read_rsp_reg(void);
 void read_rsp_regb(void);
 void read_rsp_regh(void);
@@ -250,10 +224,10 @@ void write_rdramreg(void);
 void write_rdramregb(void);
 void write_rdramregh(void);
 void write_rdramregd(void);
-void write_rsp_mem(void);
-void write_rsp_memb(void);
-void write_rsp_memh(void);
-void write_rsp_memd(void);
+void write_rsp_memory(void);
+void write_rsp_memoryb(void);
+void write_rsp_memoryh(void);
+void write_rsp_memoryd(void);
 void write_rsp_reg(void);
 void write_rsp_regb(void);
 void write_rsp_regh(void);
@@ -308,7 +282,6 @@ void write_pifb(void);
 void write_pifh(void);
 void write_pifd(void);
 
-void make_w_sp_status_reg(void);
 void make_w_dpc_status(void);
 
 /* Returns a pointer to a block of contiguous memory

@@ -38,6 +38,8 @@
 #include "r4300/ops.h"
 #include "../r4300/new_dynarec/new_dynarec.h"
 
+#include "rsp/core.h"
+
 #define M64P_CORE_PROTOTYPES 1
 #include "api/m64p_config.h"
 #include "api/config.h"
@@ -292,16 +294,17 @@ void dma_sp_write(void)
 {
     unsigned int i,j;
 
-    unsigned int l = sp_register.sp_rd_len_reg;
+    unsigned int l = g_sp.regs[SP_RD_LEN_REG];
 
     unsigned int length = ((l & 0xfff) | 7) + 1;
     unsigned int count = ((l >> 12) & 0xff) + 1;
     unsigned int skip = ((l >> 20) & 0xfff);
  
-    unsigned int memaddr = sp_register.sp_mem_addr_reg & 0xfff;
-    unsigned int dramaddr = sp_register.sp_dram_addr_reg & 0xffffff;
+    unsigned int memaddr = g_sp.regs[SP_MEM_ADDR_REG] & 0xfff;
+    unsigned int dramaddr = g_sp.regs[SP_DRAM_ADDR_REG] & 0xffffff;
 
-    unsigned char *spmem = ((sp_register.sp_mem_addr_reg & 0x1000) != 0) ? (unsigned char*)SP_IMEM : (unsigned char*)SP_DMEM;
+    unsigned char *spmem = ((unsigned char*)g_sp.mem)
+                         + (g_sp.regs[SP_MEM_ADDR_REG] & 0x1000);
     unsigned char *dram = (unsigned char*)g_rdram.ram;
 
     for(j=0; j<count; j++) {
@@ -318,16 +321,17 @@ void dma_sp_read(void)
 {
     unsigned int i,j;
 
-    unsigned int l = sp_register.sp_wr_len_reg;
+    unsigned int l = g_sp.regs[SP_WR_LEN_REG];
 
     unsigned int length = ((l & 0xfff) | 7) + 1;
     unsigned int count = ((l >> 12) & 0xff) + 1;
     unsigned int skip = ((l >> 20) & 0xfff);
 
-    unsigned int memaddr = sp_register.sp_mem_addr_reg & 0xfff;
-    unsigned int dramaddr = sp_register.sp_dram_addr_reg & 0xffffff;
+    unsigned int memaddr = g_sp.regs[SP_MEM_ADDR_REG] & 0xfff;
+    unsigned int dramaddr = g_sp.regs[SP_DRAM_ADDR_REG] & 0xffffff;
 
-    unsigned char *spmem = ((sp_register.sp_mem_addr_reg & 0x1000) != 0) ? (unsigned char*)SP_IMEM : (unsigned char*)SP_DMEM;
+    unsigned char *spmem = ((unsigned char*)g_sp.mem)
+                         + (g_sp.regs[SP_MEM_ADDR_REG] & 0x1000);
     unsigned char *dram = (unsigned char*)g_rdram.ram;
 
     for(j=0; j<count; j++) {

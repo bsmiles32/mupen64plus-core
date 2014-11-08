@@ -37,6 +37,8 @@
 
 #include "osal/dynamiclib.h"
 
+#include "rsp/core.h"
+
 #include "dummy_audio.h"
 #include "dummy_video.h"
 #include "dummy_input.h"
@@ -228,8 +230,8 @@ static m64p_error plugin_start_gfx(void)
     /* fill in the GFX_INFO data structure */
     gfx_info.HEADER = (unsigned char *) rom;
     gfx_info.RDRAM = (unsigned char *) g_rdram.ram;
-    gfx_info.DMEM = (unsigned char *) SP_DMEM;
-    gfx_info.IMEM = (unsigned char *) SP_IMEM;
+    gfx_info.DMEM = (unsigned char *) g_sp.mem;
+    gfx_info.IMEM = ((unsigned char *) g_sp.mem) + 0x1000;
     gfx_info.MI_INTR_REG = &(g_mi.regs[MI_INTR_REG]);
     gfx_info.DPC_START_REG = &(dpc_register.dpc_start);
     gfx_info.DPC_END_REG = &(dpc_register.dpc_end);
@@ -320,8 +322,8 @@ static m64p_error plugin_start_audio(void)
 {
     /* fill in the AUDIO_INFO data structure */
     audio_info.RDRAM = (unsigned char *) g_rdram.ram;
-    audio_info.DMEM = (unsigned char *) SP_DMEM;
-    audio_info.IMEM = (unsigned char *) SP_IMEM;
+    audio_info.DMEM = (unsigned char *) g_sp.mem;
+    audio_info.IMEM = ((unsigned char *) g_sp.mem) + 0x1000;
     audio_info.MI_INTR_REG = &(g_mi.regs[MI_INTR_REG]);
     audio_info.AI_DRAM_ADDR_REG = &(g_ai.regs[AI_DRAM_ADDR_REG]);
     audio_info.AI_LEN_REG = &(g_ai.regs[AI_LEN_REG]);
@@ -454,18 +456,18 @@ static m64p_error plugin_start_rsp(void)
 {
     /* fill in the RSP_INFO data structure */
     rsp_info.RDRAM = (unsigned char *) g_rdram.ram;
-    rsp_info.DMEM = (unsigned char *) SP_DMEM;
-    rsp_info.IMEM = (unsigned char *) SP_IMEM;
+    rsp_info.DMEM = (unsigned char *) g_sp.mem;
+    rsp_info.IMEM = ((unsigned char *) g_sp.mem) + 0x1000;
     rsp_info.MI_INTR_REG = &g_mi.regs[MI_INTR_REG];
-    rsp_info.SP_MEM_ADDR_REG = &sp_register.sp_mem_addr_reg;
-    rsp_info.SP_DRAM_ADDR_REG = &sp_register.sp_dram_addr_reg;
-    rsp_info.SP_RD_LEN_REG = &sp_register.sp_rd_len_reg;
-    rsp_info.SP_WR_LEN_REG = &sp_register.sp_wr_len_reg;
-    rsp_info.SP_STATUS_REG = &sp_register.sp_status_reg;
-    rsp_info.SP_DMA_FULL_REG = &sp_register.sp_dma_full_reg;
-    rsp_info.SP_DMA_BUSY_REG = &sp_register.sp_dma_busy_reg;
-    rsp_info.SP_PC_REG = &rsp_register.rsp_pc;
-    rsp_info.SP_SEMAPHORE_REG = &sp_register.sp_semaphore_reg;
+    rsp_info.SP_MEM_ADDR_REG = &g_sp.regs[SP_MEM_ADDR_REG];
+    rsp_info.SP_DRAM_ADDR_REG = &g_sp.regs[SP_DRAM_ADDR_REG];
+    rsp_info.SP_RD_LEN_REG = &g_sp.regs[SP_RD_LEN_REG];
+    rsp_info.SP_WR_LEN_REG = &g_sp.regs[SP_WR_LEN_REG];
+    rsp_info.SP_STATUS_REG = &g_sp.regs[SP_STATUS_REG];
+    rsp_info.SP_DMA_FULL_REG = &g_sp.regs[SP_DMA_FULL_REG];
+    rsp_info.SP_DMA_BUSY_REG = &g_sp.regs[SP_DMA_BUSY_REG];
+    rsp_info.SP_PC_REG = &g_sp.regs2[SP_PC_REG];
+    rsp_info.SP_SEMAPHORE_REG = &g_sp.regs[SP_SEMAPHORE_REG];
     rsp_info.DPC_START_REG = &dpc_register.dpc_start;
     rsp_info.DPC_END_REG = &dpc_register.dpc_end;
     rsp_info.DPC_CURRENT_REG = &dpc_register.dpc_current;

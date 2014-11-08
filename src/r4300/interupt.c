@@ -37,6 +37,7 @@
 #include "main/cheat.h"
 #include "osd/osd.h"
 #include "plugin/plugin.h"
+#include "rsp/core.h"
 #include "vi/controller.h"
 
 #include "interupt.h"
@@ -558,10 +559,10 @@ void gen_interupt(void)
 
         case SP_INT:
             remove_interupt_event();
-            sp_register.sp_status_reg |= 0x203;
-            // sp_register.sp_status_reg |= 0x303;
+            g_sp.regs[SP_STATUS_REG] |= 0x203;
+            // g_sp.regs[SP_STATUS_REG] |= 0x303;
     
-            if (!(sp_register.sp_status_reg & 0x40)) return; // !intr_on_break
+            if (!(g_sp.regs[SP_STATUS_REG] & 0x40)) return; // !intr_on_break
             g_mi.regs[MI_INTR_REG] |= MI_INTR_SP;
             if (g_mi.regs[MI_INTR_REG] & g_mi.regs[MI_INTR_MASK_REG])
                 g_cp0_regs[CP0_CAUSE_REG] = (g_cp0_regs[CP0_CAUSE_REG] | 0x400) & 0xFFFFFF83;
