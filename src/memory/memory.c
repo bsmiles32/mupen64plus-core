@@ -37,6 +37,7 @@
 #include "flashram.h"
 
 #include "ai/controller.h"
+#include "pi/controller.h"
 
 #include "r4300/r4300.h"
 #include "r4300/cached_interp.h"
@@ -65,7 +66,6 @@
 #endif
 
 /* definitions of the rcp's structures and memory area */
-PI_register pi_register;
 SP_register sp_register;
 RSP_register rsp_register;
 SI_register si_register;
@@ -77,6 +77,7 @@ unsigned int CIC_Chip;
 ALIGN(16, struct rdram_controller g_rdram);
 struct ai_controller g_ai;
 struct mi_controller g_mi;
+struct pi_controller g_pi;
 struct vi_controller g_vi;
 
 unsigned int SP_DMEM[0x1000/4*2];
@@ -126,7 +127,6 @@ void (*writememh[0x10000])(void);
 // memory sections
 unsigned int *readrspreg[0x10000];
 unsigned int *readrsp[0x10000];
-unsigned int *readpi[0x10000];
 unsigned int *readsi[0x10000];
 unsigned int *readdp[0x10000];
 unsigned int *readdps[0x10000];
@@ -618,7 +618,9 @@ int init_memory(int DoByteSwap)
         writememd[0xa450+i] = write_nothingd;
     }
 
-    //init PI registers
+    init_pi(&g_pi);
+
+    /* map PI registers */
     readmem[0x8460] = read_pi;
     readmem[0xa460] = read_pi;
     readmemb[0x8460] = read_pib;
@@ -635,34 +637,6 @@ int init_memory(int DoByteSwap)
     writememh[0xa460] = write_pih;
     writememd[0x8460] = write_pid;
     writememd[0xa460] = write_pid;
-    pi_register.pi_dram_addr_reg = 0;
-    pi_register.pi_cart_addr_reg = 0;
-    pi_register.pi_rd_len_reg = 0;
-    pi_register.pi_wr_len_reg = 0;
-    pi_register.read_pi_status_reg = 0;
-    pi_register.pi_bsd_dom1_lat_reg = 0;
-    pi_register.pi_bsd_dom1_pwd_reg = 0;
-    pi_register.pi_bsd_dom1_pgs_reg = 0;
-    pi_register.pi_bsd_dom1_rls_reg = 0;
-    pi_register.pi_bsd_dom2_lat_reg = 0;
-    pi_register.pi_bsd_dom2_pwd_reg = 0;
-    pi_register.pi_bsd_dom2_pgs_reg = 0;
-    pi_register.pi_bsd_dom2_rls_reg = 0;
-    readpi[0x0] = &pi_register.pi_dram_addr_reg;
-    readpi[0x4] = &pi_register.pi_cart_addr_reg;
-    readpi[0x8] = &pi_register.pi_rd_len_reg;
-    readpi[0xc] = &pi_register.pi_wr_len_reg;
-    readpi[0x10] = &pi_register.read_pi_status_reg;
-    readpi[0x14] = &pi_register.pi_bsd_dom1_lat_reg;
-    readpi[0x18] = &pi_register.pi_bsd_dom1_pwd_reg;
-    readpi[0x1c] = &pi_register.pi_bsd_dom1_pgs_reg;
-    readpi[0x20] = &pi_register.pi_bsd_dom1_rls_reg;
-    readpi[0x24] = &pi_register.pi_bsd_dom2_lat_reg;
-    readpi[0x28] = &pi_register.pi_bsd_dom2_pwd_reg;
-    readpi[0x2c] = &pi_register.pi_bsd_dom2_pgs_reg;
-    readpi[0x30] = &pi_register.pi_bsd_dom2_rls_reg;
-
-    for (i=0x34; i<0x10000; i++) readpi[i] = &trash;
     for (i=1; i<0x10; i++)
     {
         readmem[0x8460+i] = read_nothing;
@@ -2529,201 +2503,67 @@ void write_aid(void)
 
 void read_pi(void)
 {
-    *rdword = *(readpi[*address_low]);
+    uint32_t value;
+
+    read_pi_regs(&g_pi, address, &value);
+    *rdword = value;
 }
 
 void read_pib(void)
 {
-    *rdword = *((unsigned char*)readpi[*address_low & 0xfffc]
-                + ((*address_low&3)^S8) );
+    uint32_t value;
+    unsigned shift = bshift(address);
+
+    read_pi_regs(&g_pi, address, &value);
+    *rdword = (value >> shift) & 0xff;
 }
 
 void read_pih(void)
 {
-    *rdword = *((unsigned short*)((unsigned char*)readpi[*address_low & 0xfffc]
-                                  + ((*address_low&3)^S16) ));
+    uint32_t value;
+    unsigned shift = hshift(address);
+
+    read_pi_regs(&g_pi, address, &value);
+    *rdword = (value >> shift) & 0xffff;
 }
 
 void read_pid(void)
 {
-    *rdword = ((unsigned long long int)(*readpi[*address_low])<<32) |
-              *readpi[*address_low+4];
+    uint32_t w[2];
+
+    read_pi_regs(&g_pi, address    , &w[0]);
+    read_pi_regs(&g_pi, address + 4, &w[1]);
+
+    *rdword = ((uint64_t)w[0] << 32) | w[1];
 }
 
 void write_pi(void)
 {
-    switch (*address_low)
-    {
-    case 0x8:
-        pi_register.pi_rd_len_reg = word;
-        dma_pi_read();
-        return;
-        break;
-    case 0xc:
-        pi_register.pi_wr_len_reg = word;
-        dma_pi_write();
-        return;
-        break;
-    case 0x10:
-        if (word & 2) g_mi.regs[MI_INTR_REG] &= ~MI_INTR_PI;
-        check_interupt();
-        return;
-        break;
-    case 0x14:
-    case 0x18:
-    case 0x1c:
-    case 0x20:
-    case 0x24:
-    case 0x28:
-    case 0x2c:
-    case 0x30:
-        *readpi[*address_low] = word & 0xFF;
-        return;
-        break;
-    }
-    *readpi[*address_low] = word;
+    write_pi_regs(&g_pi, address, word, ~0U);
 }
 
 void write_pib(void)
 {
-    switch (*address_low)
-    {
-    case 0x8:
-    case 0x9:
-    case 0xa:
-    case 0xb:
-        *((unsigned char*)&pi_register.pi_rd_len_reg
-          + ((*address_low&3)^S8) ) = cpu_byte;
-        dma_pi_read();
-        return;
-        break;
-    case 0xc:
-    case 0xd:
-    case 0xe:
-    case 0xf:
-        *((unsigned char*)&pi_register.pi_wr_len_reg
-          + ((*address_low&3)^S8) ) = cpu_byte;
-        dma_pi_write();
-        return;
-        break;
-    case 0x10:
-    case 0x11:
-    case 0x12:
-    case 0x13:
-        if (word) g_mi.regs[MI_INTR_REG] &= ~MI_INTR_PI;
-        check_interupt();
-        return;
-        break;
-    case 0x14:
-    case 0x15:
-    case 0x16:
-    case 0x18:
-    case 0x19:
-    case 0x1a:
-    case 0x1c:
-    case 0x1d:
-    case 0x1e:
-    case 0x20:
-    case 0x21:
-    case 0x22:
-    case 0x24:
-    case 0x25:
-    case 0x26:
-    case 0x28:
-    case 0x29:
-    case 0x2a:
-    case 0x2c:
-    case 0x2d:
-    case 0x2e:
-    case 0x30:
-    case 0x31:
-    case 0x32:
-        return;
-        break;
-    }
-    *((unsigned char*)readpi[*address_low & 0xfffc]
-      + ((*address_low&3)^S8) ) = cpu_byte;
+    unsigned shift = bshift(address);
+    uint32_t value = (uint32_t)cpu_byte << shift;
+    uint32_t mask = (uint32_t)0xff << shift;
+
+    write_pi_regs(&g_pi, address, value, mask);
 }
 
 void write_pih(void)
 {
-    switch (*address_low)
-    {
-    case 0x8:
-    case 0xa:
-        *((unsigned short*)((unsigned char*)&pi_register.pi_rd_len_reg
-                            + ((*address_low&3)^S16) )) = hword;
-        dma_pi_read();
-        return;
-        break;
-    case 0xc:
-    case 0xe:
-        *((unsigned short*)((unsigned char*)&pi_register.pi_wr_len_reg
-                            + ((*address_low&3)^S16) )) = hword;
-        dma_pi_write();
-        return;
-        break;
-    case 0x10:
-    case 0x12:
-        if (word) g_mi.regs[MI_INTR_REG] &= ~MI_INTR_PI;
-        check_interupt();
-        return;
-        break;
-    case 0x16:
-    case 0x1a:
-    case 0x1e:
-    case 0x22:
-    case 0x26:
-    case 0x2a:
-    case 0x2e:
-    case 0x32:
-        *((unsigned short*)((unsigned char*)readpi[*address_low & 0xfffc]
-                            + ((*address_low&3)^S16) )) = hword & 0xFF;
-        return;
-        break;
-    case 0x14:
-    case 0x18:
-    case 0x1c:
-    case 0x20:
-    case 0x24:
-    case 0x28:
-    case 0x2c:
-    case 0x30:
-        return;
-        break;
-    }
-    *((unsigned short*)((unsigned char*)readpi[*address_low & 0xfffc]
-                        + ((*address_low&3)^S16) )) = hword;
+    unsigned shift = hshift(address);
+    uint32_t value = (uint32_t)hword << shift;
+    uint32_t mask = (uint32_t)0xffff << shift;
+
+    write_pi_regs(&g_pi, address, value, mask);
 }
 
 void write_pid(void)
 {
-    switch (*address_low)
-    {
-    case 0x8:
-        pi_register.pi_rd_len_reg = (unsigned int) (dword >> 32);
-        dma_pi_read();
-        pi_register.pi_wr_len_reg = (unsigned int) (dword & 0xFFFFFFFF);
-        dma_pi_write();
-        return;
-        break;
-    case 0x10:
-        if (word) g_mi.regs[MI_INTR_REG] &= ~MI_INTR_PI;
-        check_interupt();
-        *readpi[*address_low+4] = (unsigned int) (dword & 0xFF);
-        return;
-        break;
-    case 0x18:
-    case 0x20:
-    case 0x28:
-    case 0x30:
-        *readpi[*address_low] = (unsigned int) (dword >> 32) & 0xFF;
-        *readpi[*address_low+4] = (unsigned int) (dword & 0xFF);
-        return;
-        break;
-    }
-    *readpi[*address_low] = (unsigned int) (dword >> 32);
-    *readpi[*address_low+4] = (unsigned int) (dword & 0xFFFFFFFF);
+    write_pi_regs(&g_pi, address    , dword >> 32, ~0U);
+    write_pi_regs(&g_pi, address + 4, dword      , ~0U);
 }
 
 void read_ri(void)

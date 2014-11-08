@@ -192,11 +192,11 @@ void r4300_reset_soft(void)
     rsp_register.rsp_pc = 0;
 
     uint32_t bsd_dom1_config = *(uint32_t*)rom;
-    pi_register.pi_bsd_dom1_lat_reg = (bsd_dom1_config      ) & 0xff;
-    pi_register.pi_bsd_dom1_pwd_reg = (bsd_dom1_config >>  8) & 0xff;
-    pi_register.pi_bsd_dom1_pgs_reg = (bsd_dom1_config >> 16) & 0x0f;
-    pi_register.pi_bsd_dom1_rls_reg = (bsd_dom1_config >> 20) & 0x03;
-    pi_register.read_pi_status_reg = 0;
+    g_pi.regs[PI_BSD_DOM1_LAT_REG] = (bsd_dom1_config      ) & 0xff;
+    g_pi.regs[PI_BSD_DOM1_PWD_REG] = (bsd_dom1_config >>  8) & 0xff;
+    g_pi.regs[PI_BSD_DOM1_PGS_REG] = (bsd_dom1_config >> 16) & 0x0f;
+    g_pi.regs[PI_BSD_DOM1_RLS_REG] = (bsd_dom1_config >> 20) & 0x03;
+    g_pi.regs[PI_STATUS_REG] = 0;
 
     g_ai.regs[AI_DRAM_ADDR_REG] = 0;
     g_ai.regs[AI_LEN_REG] = 0;

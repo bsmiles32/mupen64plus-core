@@ -24,6 +24,7 @@
 
 #include "osal/preproc.h"
 #include "ai/controller.h"
+#include "pi/controller.h"
 #include "r4300/mi.h"
 #include "rdram/controller.h"
 #include "vi/controller.h"
@@ -48,6 +49,7 @@ extern unsigned char *PIF_RAMb;
 extern ALIGN(16, struct rdram_controller g_rdram);
 extern struct ai_controller g_ai;
 extern struct mi_controller g_mi;
+extern struct pi_controller g_pi;
 extern struct vi_controller g_vi;
 
 extern unsigned int address, word;
@@ -66,7 +68,6 @@ extern void (*writememd[0x10000])(void);
 
 extern unsigned int *readrspreg[0x10000];
 extern unsigned int *readrsp[0x10000];
-extern unsigned int *readpi[0x10000];
 extern unsigned int *readsi[0x10000];
 extern unsigned int *readdp[0x10000];
 extern unsigned int *readdps[0x10000];
@@ -111,23 +112,6 @@ typedef struct _DPS_register
    unsigned int dps_buftest_data;
 } DPS_register;
 
-typedef struct _PI_register
-{
-   unsigned int pi_dram_addr_reg;
-   unsigned int pi_cart_addr_reg;
-   unsigned int pi_rd_len_reg;
-   unsigned int pi_wr_len_reg;
-   unsigned int read_pi_status_reg;
-   unsigned int pi_bsd_dom1_lat_reg;
-   unsigned int pi_bsd_dom1_pwd_reg;
-   unsigned int pi_bsd_dom1_pgs_reg;
-   unsigned int pi_bsd_dom1_rls_reg;
-   unsigned int pi_bsd_dom2_lat_reg;
-   unsigned int pi_bsd_dom2_pwd_reg;
-   unsigned int pi_bsd_dom2_pgs_reg;
-   unsigned int pi_bsd_dom2_rls_reg;
-} PI_register;
-
 typedef struct _SI_register
 {
    unsigned int si_dram_addr;
@@ -136,7 +120,6 @@ typedef struct _SI_register
    unsigned int si_stat;
 } SI_register;
 
-extern PI_register pi_register;
 extern SP_register sp_register;
 extern SI_register si_register;
 extern RSP_register rsp_register;
