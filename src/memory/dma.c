@@ -34,6 +34,7 @@
 #include "r4300/cached_interp.h"
 #include "r4300/interupt.h"
 #include "r4300/cp0.h"
+#include "r4300/mi.h"
 #include "r4300/ops.h"
 #include "../r4300/new_dynarec/new_dynarec.h"
 
@@ -360,7 +361,7 @@ void dma_si_write(void)
     if (delay_si) {
         add_interupt_event(SI_INT, /*0x100*/0x900);
     } else {
-        MI_register.mi_intr_reg |= 0x02; // SI
+        g_mi.regs[MI_INTR_REG] |= MI_INTR_SI;
         si_register.si_stat |= 0x1000; // INTERRUPT
         check_interupt();
     }
@@ -388,7 +389,7 @@ void dma_si_read(void)
     if (delay_si) {
         add_interupt_event(SI_INT, /*0x100*/0x900);
     } else {
-        MI_register.mi_intr_reg |= 0x02; // SI
+        g_mi.regs[MI_INTR_REG] |= MI_INTR_SI;
         si_register.si_stat |= 0x1000; // INTERRUPT
         check_interupt();
     }

@@ -111,7 +111,7 @@ int read_rdram_regs(struct rdram_controller* rdram,
 
     *value = rdram->rdram_regs[reg];
 
-    DebugMessage(M64MSG_WARNING, "%s -> %08x", rdram_regs_name[reg], *value);
+//    DebugMessage(M64MSG_WARNING, "%s -> %08x", rdram_regs_name[reg], *value);
 
     return 0;
 }
@@ -123,7 +123,7 @@ int write_rdram_regs(struct rdram_controller* rdram,
 
     masked_write(&rdram->rdram_regs[reg], value, mask);
     
-    DebugMessage(M64MSG_WARNING, "%s <- %08x",  rdram_regs_name[reg], value);
+//    DebugMessage(M64MSG_WARNING, "%s <- %08x",  rdram_regs_name[reg], value);
 
     return 0;
 }
@@ -144,7 +144,7 @@ int read_ri_regs(struct rdram_controller* rdram,
 
     *value = rdram->ri_regs[reg];
 
-    DebugMessage(M64MSG_WARNING, "%s -> %08x", ri_regs_name[reg], *value);
+//    DebugMessage(M64MSG_WARNING, "%s -> %08x", ri_regs_name[reg], *value);
 
     return 0;
 }
@@ -156,7 +156,7 @@ int write_ri_regs(struct rdram_controller* rdram,
 
     masked_write(&rdram->ri_regs[reg], value, mask);
 
-    DebugMessage(M64MSG_WARNING, "%s <- %08x", ri_regs_name[reg], value);
+//    DebugMessage(M64MSG_WARNING, "%s <- %08x", ri_regs_name[reg], value);
 
     return 0;
 }

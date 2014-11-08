@@ -36,6 +36,7 @@
 #include "cached_interp.h"
 #include "cp0.h"
 #include "cp1.h"
+#include "mi.h"
 #include "ops.h"
 #include "interupt.h"
 #include "pure_interp.h"
@@ -204,7 +205,7 @@ void r4300_reset_soft(void)
     g_vi.regs[VI_CURRENT_REG] = 0;
     g_vi.regs[VI_H_START_REG] = 0;
 
-    MI_register.mi_intr_reg &= ~(0x10 | 0x8 | 0x4 | 0x1);
+    g_mi.regs[MI_INTR_REG] &= ~(0x10 | 0x8 | 0x4 | 0x1);
 
     memcpy((unsigned char*)SP_DMEM+0x40, rom+0x40, 0xfc0);
 

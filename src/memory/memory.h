@@ -23,8 +23,9 @@
 #define MEMORY_H
 
 #include "osal/preproc.h"
-#include "rdram/controller.h"
 #include "ai/controller.h"
+#include "r4300/mi.h"
+#include "rdram/controller.h"
 #include "vi/controller.h"
 
 int init_memory(int DoByteSwap);
@@ -46,6 +47,7 @@ extern unsigned char *PIF_RAMb;
 
 extern ALIGN(16, struct rdram_controller g_rdram);
 extern struct ai_controller g_ai;
+extern struct mi_controller g_mi;
 extern struct vi_controller g_vi;
 
 extern unsigned int address, word;
@@ -64,8 +66,6 @@ extern void (*writememd[0x10000])(void);
 
 extern unsigned int *readrspreg[0x10000];
 extern unsigned int *readrsp[0x10000];
-extern unsigned int *readmi[0x10000];
-extern unsigned int *readai[0x10000];
 extern unsigned int *readpi[0x10000];
 extern unsigned int *readsi[0x10000];
 extern unsigned int *readdp[0x10000];
@@ -111,16 +111,6 @@ typedef struct _DPS_register
    unsigned int dps_buftest_data;
 } DPS_register;
 
-typedef struct _mips_register
-{
-   unsigned int w_mi_init_mode_reg;
-   unsigned int mi_init_mode_reg;
-   unsigned int mi_version_reg;
-   unsigned int mi_intr_reg;
-   unsigned int mi_intr_mask_reg;
-   unsigned int w_mi_intr_mask_reg;
-} mips_register;
-
 typedef struct _PI_register
 {
    unsigned int pi_dram_addr_reg;
@@ -147,7 +137,6 @@ typedef struct _SI_register
 } SI_register;
 
 extern PI_register pi_register;
-extern mips_register MI_register;
 extern SP_register sp_register;
 extern SI_register si_register;
 extern RSP_register rsp_register;
@@ -338,10 +327,6 @@ void write_pifd(void);
 
 void make_w_sp_status_reg(void);
 void make_w_dpc_status(void);
-void make_w_mi_init_mode_reg(void);
-void update_MI_intr_mode_reg(void);
-void update_MI_init_mask_reg(void);
-void make_w_mi_intr_mask_reg(void);
 
 /* Returns a pointer to a block of contiguous memory
  * Can access RDRAM, SP_DMEM, SP_IMEM and ROM, using TLB if necessary

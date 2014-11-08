@@ -42,6 +42,7 @@
 #include "r4300/cached_interp.h"
 #include "r4300/cp0.h"
 #include "r4300/interupt.h"
+#include "r4300/mi.h"
 #include "r4300/recomph.h"
 #include "r4300/ops.h"
 #include "r4300/tlb.h"
@@ -64,7 +65,6 @@
 #endif
 
 /* definitions of the rcp's structures and memory area */
-mips_register MI_register;
 PI_register pi_register;
 SP_register sp_register;
 RSP_register rsp_register;
@@ -76,6 +76,7 @@ unsigned int CIC_Chip;
 
 ALIGN(16, struct rdram_controller g_rdram);
 struct ai_controller g_ai;
+struct mi_controller g_mi;
 struct vi_controller g_vi;
 
 unsigned int SP_DMEM[0x1000/4*2];
@@ -125,7 +126,6 @@ void (*writememh[0x10000])(void);
 // memory sections
 unsigned int *readrspreg[0x10000];
 unsigned int *readrsp[0x10000];
-unsigned int *readmi[0x10000];
 unsigned int *readpi[0x10000];
 unsigned int *readsi[0x10000];
 unsigned int *readdp[0x10000];
@@ -501,7 +501,9 @@ int init_memory(int DoByteSwap)
         writememd[0xa420+i] = write_nothingd;
     }
 
-    //init mips registers
+    init_mi(&g_mi);
+
+    /* map MIPS Interface registers */
     readmem[0xa830] = read_mi;
     readmem[0xa430] = read_mi;
     readmemb[0xa830] = read_mib;
@@ -518,18 +520,6 @@ int init_memory(int DoByteSwap)
     writememh[0xa430] = write_mih;
     writememd[0x8430] = write_mid;
     writememd[0xa430] = write_mid;
-    MI_register.w_mi_init_mode_reg = 0;
-    MI_register.mi_init_mode_reg = 0;
-    MI_register.mi_version_reg = 0x02020102;
-    MI_register.mi_intr_reg = 0;
-    MI_register.w_mi_intr_mask_reg = 0;
-    MI_register.mi_intr_mask_reg = 0;
-    readmi[0x0] = &MI_register.mi_init_mode_reg;
-    readmi[0x4] = &MI_register.mi_version_reg;
-    readmi[0x8] = &MI_register.mi_intr_reg;
-    readmi[0xc] = &MI_register.mi_intr_mask_reg;
-
-    for (i=0x10; i<0x10000; i++) readmi[i] = &trash;
     for (i=1; i<0x10; i++)
     {
         readmem[0x8430+i] = read_nothing;
@@ -948,102 +938,6 @@ void free_memory(void)
 {
 }
 
-void make_w_mi_init_mode_reg(void)
-{
-    MI_register.w_mi_init_mode_reg = MI_register.mi_init_mode_reg & 0x7F;
-    if ((MI_register.mi_init_mode_reg & 0x080) == 0)
-        MI_register.w_mi_init_mode_reg |= 0x0000080;
-    else
-        MI_register.w_mi_init_mode_reg |= 0x0000100;
-
-    if ((MI_register.mi_init_mode_reg & 0x100) == 0)
-        MI_register.w_mi_init_mode_reg |= 0x0000200;
-    else
-        MI_register.w_mi_init_mode_reg |= 0x0000400;
-
-    if ((MI_register.mi_init_mode_reg & 0x200) == 0)
-        MI_register.w_mi_init_mode_reg |= 0x0001000;
-    else
-        MI_register.w_mi_init_mode_reg |= 0x0002000;
-}
-
-static void update_MI_init_mode_reg(void)
-{
-    MI_register.mi_init_mode_reg &= ~0x7F; // init_length
-    MI_register.mi_init_mode_reg |= MI_register.w_mi_init_mode_reg & 0x7F;
-
-    if (MI_register.w_mi_init_mode_reg & 0x80) // clear init_mode
-        MI_register.mi_init_mode_reg &= ~0x80;
-    if (MI_register.w_mi_init_mode_reg & 0x100) // set init_mode
-        MI_register.mi_init_mode_reg |= 0x80;
-
-    if (MI_register.w_mi_init_mode_reg & 0x200) // clear ebus_test_mode
-        MI_register.mi_init_mode_reg &= ~0x100;
-    if (MI_register.w_mi_init_mode_reg & 0x400) // set ebus_test_mode
-        MI_register.mi_init_mode_reg |= 0x100;
-
-    if (MI_register.w_mi_init_mode_reg & 0x800) // clear DP interupt
-    {
-        MI_register.mi_intr_reg &= ~0x20;
-        check_interupt();
-    }
-
-    if (MI_register.w_mi_init_mode_reg & 0x1000) // clear RDRAM_reg_mode
-        MI_register.mi_init_mode_reg &= ~0x200;
-    if (MI_register.w_mi_init_mode_reg & 0x2000) // set RDRAM_reg_mode
-        MI_register.mi_init_mode_reg |= 0x200;
-}
-
-void make_w_mi_intr_mask_reg(void)
-{
-    MI_register.w_mi_intr_mask_reg = 0;
-    if ((MI_register.mi_intr_mask_reg & 0x01) == 0)
-        MI_register.w_mi_intr_mask_reg |= 0x0000001;
-    else
-        MI_register.w_mi_intr_mask_reg |= 0x0000002;
-    
-    if ((MI_register.mi_intr_mask_reg & 0x02) == 0)
-        MI_register.w_mi_intr_mask_reg |= 0x0000004;
-    else
-        MI_register.w_mi_intr_mask_reg |= 0x0000008;
-    
-    if ((MI_register.mi_intr_mask_reg & 0x04) == 0)
-        MI_register.w_mi_intr_mask_reg |= 0x0000010;
-    else
-        MI_register.w_mi_intr_mask_reg |= 0x0000020;
-    
-    if ((MI_register.mi_intr_mask_reg & 0x08) == 0)
-        MI_register.w_mi_intr_mask_reg |= 0x0000040;
-    else
-        MI_register.w_mi_intr_mask_reg |= 0x0000080;
-    
-    if ((MI_register.mi_intr_mask_reg & 0x10) == 0)
-        MI_register.w_mi_intr_mask_reg |= 0x0000100;
-    else
-        MI_register.w_mi_intr_mask_reg |= 0x0000200;
-    
-    if ((MI_register.mi_intr_mask_reg & 0x20) == 0)
-        MI_register.w_mi_intr_mask_reg |= 0x0000400;
-    else
-        MI_register.w_mi_intr_mask_reg |= 0x0000800;
-}
-
-static void update_MI_intr_mask_reg(void)
-{
-    if (MI_register.w_mi_intr_mask_reg & 0x1)   MI_register.mi_intr_mask_reg &= ~0x1; // clear SP mask
-    if (MI_register.w_mi_intr_mask_reg & 0x2)   MI_register.mi_intr_mask_reg |= 0x1; // set SP mask
-    if (MI_register.w_mi_intr_mask_reg & 0x4)   MI_register.mi_intr_mask_reg &= ~0x2; // clear SI mask
-    if (MI_register.w_mi_intr_mask_reg & 0x8)   MI_register.mi_intr_mask_reg |= 0x2; // set SI mask
-    if (MI_register.w_mi_intr_mask_reg & 0x10)  MI_register.mi_intr_mask_reg &= ~0x4; // clear AI mask
-    if (MI_register.w_mi_intr_mask_reg & 0x20)  MI_register.mi_intr_mask_reg |= 0x4; // set AI mask
-    if (MI_register.w_mi_intr_mask_reg & 0x40)  MI_register.mi_intr_mask_reg &= ~0x8; // clear VI mask
-    if (MI_register.w_mi_intr_mask_reg & 0x80)  MI_register.mi_intr_mask_reg |= 0x8; // set VI mask
-    if (MI_register.w_mi_intr_mask_reg & 0x100) MI_register.mi_intr_mask_reg &= ~0x10; // clear PI mask
-    if (MI_register.w_mi_intr_mask_reg & 0x200) MI_register.mi_intr_mask_reg |= 0x10; // set PI mask
-    if (MI_register.w_mi_intr_mask_reg & 0x400) MI_register.mi_intr_mask_reg &= ~0x20; // clear DP mask
-    if (MI_register.w_mi_intr_mask_reg & 0x800) MI_register.mi_intr_mask_reg |= 0x20; // set DP mask
-}
-
 void make_w_sp_status_reg(void)
 {
     sp_register.w_sp_status_reg = 0;
@@ -1223,11 +1117,11 @@ static void do_SP_Task(void)
         new_frame();
 
         update_count();
-        if (MI_register.mi_intr_reg & 0x1)
+        if (g_mi.regs[MI_INTR_REG] & MI_INTR_SP)
             add_interupt_event(SP_INT, 1000);
-        if (MI_register.mi_intr_reg & 0x20)
+        if (g_mi.regs[MI_INTR_REG] & MI_INTR_DP)
             add_interupt_event(DP_INT, 1000);
-        MI_register.mi_intr_reg &= ~0x21;
+        g_mi.regs[MI_INTR_REG] &= ~(MI_INTR_SP | MI_INTR_DP);
         sp_register.sp_status_reg &= ~0x303;
 
         // protecting new frame buffers
@@ -1352,9 +1246,9 @@ static void do_SP_Task(void)
         rsp_register.rsp_pc |= save_pc;
 
         update_count();
-        if (MI_register.mi_intr_reg & 0x1)
+        if (g_mi.regs[MI_INTR_REG] & MI_INTR_SP)
             add_interupt_event(SP_INT, 4000/*500*/);
-        MI_register.mi_intr_reg &= ~0x1;
+        g_mi.regs[MI_INTR_REG] &= ~MI_INTR_SP;
         sp_register.sp_status_reg &= ~0x303;
         
     }
@@ -1365,9 +1259,9 @@ static void do_SP_Task(void)
         rsp_register.rsp_pc |= save_pc;
 
         update_count();
-        if (MI_register.mi_intr_reg & 0x1)
+        if (g_mi.regs[MI_INTR_REG] & MI_INTR_SP)
             add_interupt_event(SP_INT, 0/*100*/);
-        MI_register.mi_intr_reg &= ~0x1;
+        g_mi.regs[MI_INTR_REG] &= ~MI_INTR_SP;
         sp_register.sp_status_reg &= ~0x203;
     }
 }
@@ -1384,13 +1278,13 @@ static void update_SP(void)
 
     if (sp_register.w_sp_status_reg & 0x8) // clear SP interupt
     {
-        MI_register.mi_intr_reg &= ~1;
+        g_mi.regs[MI_INTR_REG] &= ~MI_INTR_SP;
         check_interupt();
     }
 
     if (sp_register.w_sp_status_reg & 0x10) // set SP interupt
     {
-        MI_register.mi_intr_reg |= 1;
+        g_mi.regs[MI_INTR_REG] |= MI_INTR_SP;
         check_interupt();
     }
 
@@ -2265,7 +2159,7 @@ void write_dp(void)
         break;
     case 0x4:
         gfx.processRDPList();
-        MI_register.mi_intr_reg |= 0x20;
+        g_mi.regs[MI_INTR_REG] |= MI_INTR_DP;
         check_interupt();
         break;
     }
@@ -2320,7 +2214,7 @@ void write_dpb(void)
     case 0x6:
     case 0x7:
         gfx.processRDPList();
-        MI_register.mi_intr_reg |= 0x20;
+        g_mi.regs[MI_INTR_REG] |= MI_INTR_DP;
         check_interupt();
         break;
     }
@@ -2359,7 +2253,7 @@ void write_dph(void)
     case 0x4:
     case 0x6:
         gfx.processRDPList();
-        MI_register.mi_intr_reg |= 0x20;
+        g_mi.regs[MI_INTR_REG] |= MI_INTR_DP;
         check_interupt();
         break;
     }
@@ -2386,7 +2280,7 @@ void write_dpd(void)
     case 0x0:
         dpc_register.dpc_current = dpc_register.dpc_start;
         gfx.processRDPList();
-        MI_register.mi_intr_reg |= 0x20;
+        g_mi.regs[MI_INTR_REG] |= MI_INTR_DP;
         check_interupt();
         break;
     }
@@ -2440,113 +2334,67 @@ void write_dpsd(void)
 
 void read_mi(void)
 {
-    *rdword = *(readmi[*address_low]);
+    uint32_t value;
+
+    read_mi_regs(&g_mi, address, &value);
+    *rdword = value;
 }
 
 void read_mib(void)
 {
-    *rdword = *((unsigned char*)readmi[*address_low & 0xfffc]
-                + ((*address_low&3)^S8) );
+    uint32_t value;
+    unsigned shift = bshift(address);
+
+    read_mi_regs(&g_mi, address, &value);
+    *rdword = (value >> shift) & 0xff;
 }
 
 void read_mih(void)
 {
-    *rdword = *((unsigned short*)((unsigned char*)readmi[*address_low & 0xfffc]
-                                  + ((*address_low&3)^S16) ));
+    uint32_t value;
+    unsigned shift = hshift(address);
+
+    read_mi_regs(&g_mi, address, &value);
+    *rdword = (value >> shift) & 0xffff;
 }
 
 void read_mid(void)
 {
-    *rdword = ((unsigned long long int)(*readmi[*address_low])<<32) |
-              *readmi[*address_low+4];
+    uint32_t w[2];
+
+    read_mi_regs(&g_mi, address    , &w[0]);
+    read_mi_regs(&g_mi, address + 4, &w[1]);
+
+    *rdword = ((uint64_t)w[0] << 32) | w[1];
 }
 
 void write_mi(void)
 {
-    switch (*address_low)
-    {
-    case 0x0:
-        MI_register.w_mi_init_mode_reg = word;
-        update_MI_init_mode_reg();
-        break;
-    case 0xc:
-        MI_register.w_mi_intr_mask_reg = word;
-        update_MI_intr_mask_reg();
-
-        check_interupt();
-        update_count();
-        if (next_interupt <= g_cp0_regs[CP0_COUNT_REG]) gen_interupt();
-        break;
-    }
+    write_mi_regs(&g_mi, address, word, ~0U);
 }
 
 void write_mib(void)
 {
-    switch (*address_low)
-    {
-    case 0x0:
-    case 0x1:
-    case 0x2:
-    case 0x3:
-        *((unsigned char*)&MI_register.w_mi_init_mode_reg
-          + ((*address_low&3)^S8) ) = cpu_byte;
-        update_MI_init_mode_reg();
-        break;
-    case 0xc:
-    case 0xd:
-    case 0xe:
-    case 0xf:
-        *((unsigned char*)&MI_register.w_mi_intr_mask_reg
-          + ((*address_low&3)^S8) ) = cpu_byte;
-        update_MI_intr_mask_reg();
+    unsigned shift = bshift(address);
+    uint32_t value = (uint32_t)cpu_byte << shift;
+    uint32_t mask = (uint32_t)0xff << shift;
 
-        check_interupt();
-        update_count();
-        if (next_interupt <= g_cp0_regs[CP0_COUNT_REG]) gen_interupt();
-        break;
-    }
+    write_mi_regs(&g_mi, address, value, mask);
 }
 
 void write_mih(void)
 {
-    switch (*address_low)
-    {
-    case 0x0:
-    case 0x2:
-        *((unsigned short*)((unsigned char*)&MI_register.w_mi_init_mode_reg
-                            + ((*address_low&3)^S16) )) = hword;
-        update_MI_init_mode_reg();
-        break;
-    case 0xc:
-    case 0xe:
-        *((unsigned short*)((unsigned char*)&MI_register.w_mi_intr_mask_reg
-                            + ((*address_low&3)^S16) )) = hword;
-        update_MI_intr_mask_reg();
+    unsigned shift = hshift(address);
+    uint32_t value = (uint32_t)hword << shift;
+    uint32_t mask = (uint32_t)0xffff << shift;
 
-        check_interupt();
-        update_count();
-        if (next_interupt <= g_cp0_regs[CP0_COUNT_REG]) gen_interupt();
-        break;
-    }
+    write_mi_regs(&g_mi, address, value, mask);
 }
 
 void write_mid(void)
 {
-    switch (*address_low)
-    {
-    case 0x0:
-        MI_register.w_mi_init_mode_reg = (unsigned int) (dword >> 32);
-        update_MI_init_mode_reg();
-        break;
-    case 0x8:
-        MI_register.w_mi_intr_mask_reg = (unsigned int) (dword & 0xFFFFFFFF);
-        update_MI_intr_mask_reg();
-
-        check_interupt();
-        update_count();
-        if (next_interupt <= g_cp0_regs[CP0_COUNT_REG]) gen_interupt();
-        break;
-    }
+    write_mi_regs(&g_mi, address    , dword >> 32, ~0U);
+    write_mi_regs(&g_mi, address + 4, dword      , ~0U);
 }
 
 void read_vi(void)
@@ -2717,7 +2565,7 @@ void write_pi(void)
         return;
         break;
     case 0x10:
-        if (word & 2) MI_register.mi_intr_reg &= ~0x10;
+        if (word & 2) g_mi.regs[MI_INTR_REG] &= ~MI_INTR_PI;
         check_interupt();
         return;
         break;
@@ -2762,7 +2610,7 @@ void write_pib(void)
     case 0x11:
     case 0x12:
     case 0x13:
-        if (word) MI_register.mi_intr_reg &= ~0x10;
+        if (word) g_mi.regs[MI_INTR_REG] &= ~MI_INTR_PI;
         check_interupt();
         return;
         break;
@@ -2817,7 +2665,7 @@ void write_pih(void)
         break;
     case 0x10:
     case 0x12:
-        if (word) MI_register.mi_intr_reg &= ~0x10;
+        if (word) g_mi.regs[MI_INTR_REG] &= ~MI_INTR_PI;
         check_interupt();
         return;
         break;
@@ -2860,7 +2708,7 @@ void write_pid(void)
         return;
         break;
     case 0x10:
-        if (word) MI_register.mi_intr_reg &= ~0x10;
+        if (word) g_mi.regs[MI_INTR_REG] &= ~MI_INTR_PI;
         check_interupt();
         *readpi[*address_low+4] = (unsigned int) (dword & 0xFF);
         return;
@@ -2985,7 +2833,7 @@ void write_si(void)
         return;
         break;
     case 0x18:
-        MI_register.mi_intr_reg &= ~0x2;
+        g_mi.regs[MI_INTR_REG] &= ~MI_INTR_SI;
         si_register.si_stat &= ~0x1000;
         check_interupt();
         return;
@@ -3027,7 +2875,7 @@ void write_sib(void)
     case 0x19:
     case 0x1a:
     case 0x1b:
-        MI_register.mi_intr_reg &= ~0x2;
+        g_mi.regs[MI_INTR_REG] &= ~MI_INTR_SI;
         si_register.si_stat &= ~0x1000;
         check_interupt();
         return;
@@ -3061,7 +2909,7 @@ void write_sih(void)
         break;
     case 0x18:
     case 0x1a:
-        MI_register.mi_intr_reg &= ~0x2;
+        g_mi.regs[MI_INTR_REG] &= ~MI_INTR_SI;
         si_register.si_stat &= ~0x1000;
         check_interupt();
         return;
@@ -3085,7 +2933,7 @@ void write_sid(void)
         return;
         break;
     case 0x18:
-        MI_register.mi_intr_reg &= ~0x2;
+        g_mi.regs[MI_INTR_REG] &= ~MI_INTR_SI;
         si_register.si_stat &= ~0x1000;
         check_interupt();
         return;
