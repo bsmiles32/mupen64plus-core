@@ -32,7 +32,6 @@
 #include "api/m64p_types.h"
 
 #include "memory.h"
-#include "dma.h"
 
 #include "ai/controller.h"
 #include "pi/controller.h"

@@ -27,7 +27,6 @@
 #include "api/m64p_types.h"
 #include "api/callbacks.h"
 #include "memory/memory.h"
-#include "memory/dma.h"
 #include "pif.h"
 #include "r4300/r4300.h"
 #include "r4300/cp0.h"

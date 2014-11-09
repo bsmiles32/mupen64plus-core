@@ -27,7 +27,6 @@
 #include "api/m64p_types.h"
 #include "api/callbacks.h"
 #include "memory/memory.h"
-#include "memory/dma.h"
 #include "r4300/interupt.h"
 #include "r4300/mi.h"
 
@@ -53,6 +52,66 @@ static const char* sp_regs2_name[SP_REGS2_COUNT] =
     "SP_IBIST_REG"
 };
 #endif
+
+
+static void dma_sp_write(void)
+{
+    unsigned int i,j;
+
+    unsigned int l = g_sp.regs[SP_RD_LEN_REG];
+
+    unsigned int length = ((l & 0xfff) | 7) + 1;
+    unsigned int count = ((l >> 12) & 0xff) + 1;
+    unsigned int skip = ((l >> 20) & 0xfff);
+ 
+    unsigned int memaddr = g_sp.regs[SP_MEM_ADDR_REG] & 0xfff;
+    unsigned int dramaddr = g_sp.regs[SP_DRAM_ADDR_REG] & 0xffffff;
+
+    unsigned char *spmem = ((unsigned char*)g_sp.mem)
+                         + (g_sp.regs[SP_MEM_ADDR_REG] & 0x1000);
+    unsigned char *dram = (unsigned char*)g_rdram.ram;
+
+    for(j=0; j<count; j++) {
+        for(i=0; i<length; i++) {
+            spmem[memaddr^S8] = dram[dramaddr^S8];
+            memaddr++;
+            dramaddr++;
+        }
+        dramaddr+=skip;
+    }
+}
+
+static void dma_sp_read(void)
+{
+    unsigned int i,j;
+
+    unsigned int l = g_sp.regs[SP_WR_LEN_REG];
+
+    unsigned int length = ((l & 0xfff) | 7) + 1;
+    unsigned int count = ((l >> 12) & 0xff) + 1;
+    unsigned int skip = ((l >> 20) & 0xfff);
+
+    unsigned int memaddr = g_sp.regs[SP_MEM_ADDR_REG] & 0xfff;
+    unsigned int dramaddr = g_sp.regs[SP_DRAM_ADDR_REG] & 0xffffff;
+
+    unsigned char *spmem = ((unsigned char*)g_sp.mem)
+                         + (g_sp.regs[SP_MEM_ADDR_REG] & 0x1000);
+    unsigned char *dram = (unsigned char*)g_rdram.ram;
+
+    for(j=0; j<count; j++) {
+        for(i=0; i<length; i++) {
+            dram[dramaddr^S8] = spmem[memaddr^S8];
+            memaddr++;
+            dramaddr++;
+        }
+        dramaddr+=skip;
+    }
+}
+
+
+
+
+
 
 
 int init_rsp(struct rsp_core* sp)
