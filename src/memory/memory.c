@@ -50,6 +50,7 @@
 
 #include "rdram/controller.h"
 #include "rsp/core.h"
+#include "si/controller.h"
 #include "vi/controller.h"
 
 #include "api/callbacks.h"
@@ -67,7 +68,6 @@
 #endif
 
 /* definitions of the rcp's structures and memory area */
-SI_register si_register;
 DPC_register dpc_register;
 DPS_register dps_register;
 
@@ -77,6 +77,7 @@ ALIGN(16, struct rdram_controller g_rdram);
 struct ai_controller g_ai;
 struct mi_controller g_mi;
 struct pi_controller g_pi;
+struct si_controller g_si;
 struct vi_controller g_vi;
 struct rsp_core g_sp;
 
@@ -121,7 +122,6 @@ void (*writememd[0x10000])(void);
 void (*writememh[0x10000])(void);
 
 // memory sections
-unsigned int *readsi[0x10000];
 unsigned int *readdp[0x10000];
 unsigned int *readdps[0x10000];
 
@@ -662,7 +662,9 @@ int init_memory(int DoByteSwap)
         writememd[0xa470+i] = write_nothingd;
     }
 
-    //init SI registers
+    init_si(&g_si);
+
+    /* map SI registers */
     readmem[0x8480] = read_si;
     readmem[0xa480] = read_si;
     readmemb[0x8480] = read_sib;
@@ -679,18 +681,6 @@ int init_memory(int DoByteSwap)
     writememh[0xa480] = write_sih;
     writememd[0x8480] = write_sid;
     writememd[0xa480] = write_sid;
-    si_register.si_dram_addr = 0;
-    si_register.si_pif_addr_rd64b = 0;
-    si_register.si_pif_addr_wr64b = 0;
-    si_register.si_stat = 0;
-    readsi[0x0] = &si_register.si_dram_addr;
-    readsi[0x4] = &si_register.si_pif_addr_rd64b;
-    readsi[0x8] = &trash;
-    readsi[0x10] = &si_register.si_pif_addr_wr64b;
-    readsi[0x14] = &trash;
-    readsi[0x18] = &si_register.si_stat;
-
-    for (i=0x1c; i<0x10000; i++) readsi[i] = &trash;
     for (i=0x481; i<0x800; i++)
     {
         readmem[0x8000+i] = read_nothing;
@@ -2331,152 +2321,67 @@ void write_rid(void)
 
 void read_si(void)
 {
-    *rdword = *(readsi[*address_low]);
+    uint32_t value;
+
+    read_si_regs(&g_si, address, &value);
+    *rdword = value;
 }
 
 void read_sib(void)
 {
-    *rdword = *((unsigned char*)readsi[*address_low & 0xfffc]
-                + ((*address_low&3)^S8) );
+    uint32_t value;
+    unsigned shift = bshift(address);
+
+    read_si_regs(&g_si, address, &value);
+    *rdword = (value >> shift) & 0xff;
 }
 
 void read_sih(void)
 {
-    *rdword = *((unsigned short*)((unsigned char*)readsi[*address_low & 0xfffc]
-                                  + ((*address_low&3)^S16) ));
+    uint32_t value;
+    unsigned shift = hshift(address);
+
+    read_si_regs(&g_si, address, &value);
+    *rdword = (value >> shift) & 0xffff;
 }
 
 void read_sid(void)
 {
-    *rdword = ((unsigned long long int)(*readsi[*address_low])<<32) |
-              *readsi[*address_low+4];
+    uint32_t w[2];
+
+    read_si_regs(&g_si, address    , &w[0]);
+    read_si_regs(&g_si, address + 4, &w[1]);
+
+    *rdword = ((uint64_t)w[0] << 32) | w[1];
 }
 
 void write_si(void)
 {
-    switch (*address_low)
-    {
-    case 0x0:
-        si_register.si_dram_addr = word;
-        return;
-        break;
-    case 0x4:
-        si_register.si_pif_addr_rd64b = word;
-        dma_si_read();
-        return;
-        break;
-    case 0x10:
-        si_register.si_pif_addr_wr64b = word;
-        dma_si_write();
-        return;
-        break;
-    case 0x18:
-        g_mi.regs[MI_INTR_REG] &= ~MI_INTR_SI;
-        si_register.si_stat &= ~0x1000;
-        check_interupt();
-        return;
-        break;
-    }
+    write_si_regs(&g_si, address, word, ~0U);
 }
 
 void write_sib(void)
 {
-    switch (*address_low)
-    {
-    case 0x0:
-    case 0x1:
-    case 0x2:
-    case 0x3:
-        *((unsigned char*)&si_register.si_dram_addr
-          + ((*address_low&3)^S8) ) = cpu_byte;
-        return;
-        break;
-    case 0x4:
-    case 0x5:
-    case 0x6:
-    case 0x7:
-        *((unsigned char*)&si_register.si_pif_addr_rd64b
-          + ((*address_low&3)^S8) ) = cpu_byte;
-        dma_si_read();
-        return;
-        break;
-    case 0x10:
-    case 0x11:
-    case 0x12:
-    case 0x13:
-        *((unsigned char*)&si_register.si_pif_addr_wr64b
-          + ((*address_low&3)^S8) ) = cpu_byte;
-        dma_si_write();
-        return;
-        break;
-    case 0x18:
-    case 0x19:
-    case 0x1a:
-    case 0x1b:
-        g_mi.regs[MI_INTR_REG] &= ~MI_INTR_SI;
-        si_register.si_stat &= ~0x1000;
-        check_interupt();
-        return;
-        break;
-    }
+    unsigned shift = bshift(address);
+    uint32_t value = (uint32_t)cpu_byte << shift;
+    uint32_t mask = (uint32_t)0xff << shift;
+
+    write_si_regs(&g_si, address, value, mask);
 }
 
 void write_sih(void)
 {
-    switch (*address_low)
-    {
-    case 0x0:
-    case 0x2:
-        *((unsigned short*)((unsigned char*)&si_register.si_dram_addr
-                            + ((*address_low&3)^S16) )) = hword;
-        return;
-        break;
-    case 0x4:
-    case 0x6:
-        *((unsigned short*)((unsigned char*)&si_register.si_pif_addr_rd64b
-                            + ((*address_low&3)^S16) )) = hword;
-        dma_si_read();
-        return;
-        break;
-    case 0x10:
-    case 0x12:
-        *((unsigned short*)((unsigned char*)&si_register.si_pif_addr_wr64b
-                            + ((*address_low&3)^S16) )) = hword;
-        dma_si_write();
-        return;
-        break;
-    case 0x18:
-    case 0x1a:
-        g_mi.regs[MI_INTR_REG] &= ~MI_INTR_SI;
-        si_register.si_stat &= ~0x1000;
-        check_interupt();
-        return;
-        break;
-    }
+    unsigned shift = hshift(address);
+    uint32_t value = (uint32_t)hword << shift;
+    uint32_t mask = (uint32_t)0xffff << shift;
+
+    write_si_regs(&g_si, address, value, mask);
 }
 
 void write_sid(void)
 {
-    switch (*address_low)
-    {
-    case 0x0:
-        si_register.si_dram_addr = (unsigned int) (dword >> 32);
-        si_register.si_pif_addr_rd64b = (unsigned int) (dword & 0xFFFFFFFF);
-        dma_si_read();
-        return;
-        break;
-    case 0x10:
-        si_register.si_pif_addr_wr64b = (unsigned int) (dword >> 32);
-        dma_si_write();
-        return;
-        break;
-    case 0x18:
-        g_mi.regs[MI_INTR_REG] &= ~MI_INTR_SI;
-        si_register.si_stat &= ~0x1000;
-        check_interupt();
-        return;
-        break;
-    }
+    write_si_regs(&g_si, address    , dword >> 32, ~0U);
+    write_si_regs(&g_si, address + 4, dword      , ~0U);
 }
 
 void read_flashram_status(void)

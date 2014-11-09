@@ -27,6 +27,7 @@
 #include "pi/controller.h"
 #include "r4300/mi.h"
 #include "rdram/controller.h"
+#include "si/controller.h"
 #include "vi/controller.h"
 
 int init_memory(int DoByteSwap);
@@ -46,6 +47,7 @@ extern ALIGN(16, struct rdram_controller g_rdram);
 extern struct ai_controller g_ai;
 extern struct mi_controller g_mi;
 extern struct pi_controller g_pi;
+extern struct si_controller g_si;
 extern struct vi_controller g_vi;
 extern struct rsp_core g_sp;
 
@@ -63,7 +65,6 @@ extern void (*writememb[0x10000])(void);
 extern void (*writememh[0x10000])(void);
 extern void (*writememd[0x10000])(void);
 
-extern unsigned int *readsi[0x10000];
 extern unsigned int *readdp[0x10000];
 extern unsigned int *readdps[0x10000];
 
@@ -88,15 +89,6 @@ typedef struct _DPS_register
    unsigned int dps_buftest_data;
 } DPS_register;
 
-typedef struct _SI_register
-{
-   unsigned int si_dram_addr;
-   unsigned int si_pif_addr_rd64b;
-   unsigned int si_pif_addr_wr64b;
-   unsigned int si_stat;
-} SI_register;
-
-extern SI_register si_register;
 extern DPC_register dpc_register;
 extern DPS_register dps_register;
 

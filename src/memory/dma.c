@@ -348,7 +348,7 @@ void dma_si_write(void)
 {
     int i;
 
-    if (si_register.si_pif_addr_wr64b != 0x1FC007C0)
+    if (g_si.regs[SI_PIF_ADDR_WR64B_REG] != 0x1FC007C0)
     {
         DebugMessage(M64MSG_ERROR, "dma_si_write(): unknown SI use");
         stop=1;
@@ -356,7 +356,7 @@ void dma_si_write(void)
 
     for (i=0; i<(64/4); i++)
     {
-        PIF_RAM[i] = sl(g_rdram.ram[si_register.si_dram_addr/4+i]);
+        PIF_RAM[i] = sl(g_rdram.ram[g_si.regs[SI_DRAM_ADDR_REG]/4+i]);
     }
 
     update_pif_write();
@@ -366,7 +366,7 @@ void dma_si_write(void)
         add_interupt_event(SI_INT, /*0x100*/0x900);
     } else {
         g_mi.regs[MI_INTR_REG] |= MI_INTR_SI;
-        si_register.si_stat |= 0x1000; // INTERRUPT
+        g_si.regs[SI_STATUS_REG] |= 0x1000; // INTERRUPT
         check_interupt();
     }
 }
@@ -375,7 +375,7 @@ void dma_si_read(void)
 {
     int i;
 
-    if (si_register.si_pif_addr_rd64b != 0x1FC007C0)
+    if (g_si.regs[SI_PIF_ADDR_RD64B_REG] != 0x1FC007C0)
     {
         DebugMessage(M64MSG_ERROR, "dma_si_read(): unknown SI use");
         stop=1;
@@ -385,7 +385,7 @@ void dma_si_read(void)
 
     for (i=0; i<(64/4); i++)
     {
-        g_rdram.ram[si_register.si_dram_addr/4+i] = sl(PIF_RAM[i]);
+        g_rdram.ram[g_si.regs[SI_DRAM_ADDR_REG]/4+i] = sl(PIF_RAM[i]);
     }
 
     update_count();
@@ -394,7 +394,7 @@ void dma_si_read(void)
         add_interupt_event(SI_INT, /*0x100*/0x900);
     } else {
         g_mi.regs[MI_INTR_REG] |= MI_INTR_SI;
-        si_register.si_stat |= 0x1000; // INTERRUPT
+        g_si.regs[SI_STATUS_REG] |= 0x1000; // INTERRUPT
         check_interupt();
     }
 }
