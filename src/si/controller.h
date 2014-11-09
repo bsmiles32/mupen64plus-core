@@ -39,14 +39,16 @@ enum si_registers
     SI_REGS_COUNT
 };
 
+enum { PIF_RAM_SIZE = 0x40 };
+
 /**
  * Controller
  **/
 struct si_controller
 {
     uint32_t regs[SI_REGS_COUNT];
+    uint8_t pif_ram[PIF_RAM_SIZE];
 };
-
 
 
 int init_si(struct si_controller* si);
@@ -56,6 +58,12 @@ int read_si_regs(struct si_controller* si,
                  uint32_t address, uint32_t* value);
 int write_si_regs(struct si_controller* si,
                   uint32_t address, uint32_t value, uint32_t mask);
+
+int read_pif_ram(struct si_controller* si,
+                 uint32_t address, uint32_t* value);
+int write_pif_ram(struct si_controller* si,
+                  uint32_t address, uint32_t value, uint32_t mask);
+
 
 #endif
 

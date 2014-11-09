@@ -28,6 +28,8 @@
 #include "api/callbacks.h"
 #include "memory/memory.h"
 #include "memory/dma.h"
+#include "memory/pif.h"
+#include "r4300/cp0.h"
 #include "r4300/interupt.h"
 #include "r4300/mi.h"
 
@@ -103,6 +105,64 @@ int write_si_regs(struct si_controller* si,
     }
 
 //    DebugMessage(M64MSG_WARNING, "%s <- %08x", si_regs_name[reg], value);
+
+    return 0;
+}
+
+
+
+static inline uint32_t pif_ram_address(uint32_t address)
+{
+    return ((address & 0xfffc) - 0x7c0);
+}
+
+int read_pif_ram(struct si_controller* si,
+                 uint32_t address, uint32_t* value)
+{
+    uint32_t addr = pif_ram_address(address);
+
+    if (addr >= PIF_RAM_SIZE)
+    {
+        DebugMessage(M64MSG_WARNING, "Illegal access @=%08x", address);
+        return -1;
+    }
+
+    memcpy(value, si->pif_ram + addr, sizeof(*value));
+    *value = sl(*value);
+
+    DebugMessage(M64MSG_WARNING, "pif_ram[0x%02x] -> %08x", addr, *value);
+
+    return 0;
+}
+
+int write_pif_ram(struct si_controller* si,
+                  uint32_t address, uint32_t value, uint32_t mask)
+{
+    uint32_t addr = pif_ram_address(address);
+
+    if (addr >= PIF_RAM_SIZE)
+    {
+        DebugMessage(M64MSG_WARNING, "Illegal access @=%08x", address);
+        return -1;
+    }
+
+    masked_write((uint32_t*)&si->pif_ram[addr], sl(value), sl(mask));
+
+    if ((addr == 0x3c) && ((mask & 0x000000ff) != 0))
+    {
+        if (si->pif_ram[0x3f] == 0x08)
+        {
+            si->pif_ram[0x3f] = 0;
+            update_count();
+            add_interupt_event(SI_INT, /*0x100*/0x900);
+        }
+        else
+        {
+            update_pif_write();
+        }
+    }
+
+    DebugMessage(M64MSG_WARNING, "pif_ram[0x%02x] <- %08x & %08x", addr, value, mask);
 
     return 0;
 }

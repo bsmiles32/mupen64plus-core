@@ -81,9 +81,6 @@ struct si_controller g_si;
 struct vi_controller g_vi;
 struct rsp_core g_sp;
 
-unsigned int PIF_RAM[0x40/4];
-unsigned char *PIF_RAMb = (unsigned char *)(PIF_RAM);
-
 #if NEW_DYNAREC != NEW_DYNAREC_ARM
 // address : address of the read/write operation being done
 unsigned int address = 0;
@@ -816,7 +813,7 @@ int init_memory(int DoByteSwap)
         case 0x000000D6D5BE5580LL: CIC_Chip = 6; break;
     }
 
-    //init PIF_RAM
+    /* map PIF RAM */
     readmem[0x9fc0] = read_pif;
     readmem[0xbfc0] = read_pif;
     readmemb[0x9fc0] = read_pifb;
@@ -833,8 +830,6 @@ int init_memory(int DoByteSwap)
     writememh[0xbfc0] = write_pifh;
     writememd[0x9fc0] = write_pifd;
     writememd[0xbfc0] = write_pifd;
-    for (i=0; i<(0x40/4); i++) PIF_RAM[i]=0;
-
     for (i=0xfc1; i<0x1000; i++)
     {
         readmem[0x9000+i] = read_nothing;
@@ -2488,144 +2483,67 @@ void write_rom(void)
 
 void read_pif(void)
 {
-    if ((*address_low > 0x7FF) || (*address_low < 0x7C0))
-    {
-        DebugMessage(M64MSG_ERROR, "reading a word in PIF at invalid address 0x%x", address);
-        *rdword = 0;
-        return;
-    }
+    uint32_t value;
 
-    *rdword = sl(*((unsigned int *)(PIF_RAMb + (address & 0x7FF) - 0x7C0)));
+    read_pif_ram(&g_si, address, &value);
+    *rdword = value;
 }
 
 void read_pifb(void)
 {
-    if ((*address_low > 0x7FF) || (*address_low < 0x7C0))
-    {
-        DebugMessage(M64MSG_ERROR, "reading a byte in PIF at invalid address 0x%x", address);
-        *rdword = 0;
-        return;
-    }
+    uint32_t value;
+    unsigned shift = bshift(address);
 
-    *rdword = *(PIF_RAMb + ((address & 0x7FF) - 0x7C0));
+    read_pif_ram(&g_si, address, &value);
+    *rdword = (value >> shift) & 0xff;
 }
 
 void read_pifh(void)
 {
-    if ((*address_low > 0x7FF) || (*address_low < 0x7C0))
-    {
-        DebugMessage(M64MSG_ERROR, "reading a hword in PIF at invalid address 0x%x", address);
-        *rdword = 0;
-        return;
-    }
+    uint32_t value;
+    unsigned shift = hshift(address);
 
-    *rdword = (*(PIF_RAMb + ((address & 0x7FF) - 0x7C0)) << 8) |
-              *(PIF_RAMb + (((address+1) & 0x7FF) - 0x7C0));
+    read_pif_ram(&g_si, address, &value);
+    *rdword = (value >> shift) & 0xffff;
 }
 
 void read_pifd(void)
 {
-    if ((*address_low > 0x7FF) || (*address_low < 0x7C0))
-    {
-        DebugMessage(M64MSG_ERROR, "reading a double word in PIF in invalid address 0x%x", address);
-        *rdword = 0;
-        return;
-    }
+    uint32_t w[2];
 
-    *rdword = ((unsigned long long)sl(*((unsigned int *)(PIF_RAMb + (address & 0x7FF) - 0x7C0))) << 32)|
-              sl(*((unsigned int *)(PIF_RAMb + ((address+4) & 0x7FF) - 0x7C0)));
+    read_pif_ram(&g_si, address    , &w[0]);
+    read_pif_ram(&g_si, address + 4, &w[1]);
+
+    *rdword = ((uint64_t)w[0] << 32) | w[1];
 }
 
 void write_pif(void)
 {
-    if ((*address_low > 0x7FF) || (*address_low < 0x7C0))
-    {
-        DebugMessage(M64MSG_ERROR, "writing a word in PIF at invalid address 0x%x", address);
-        return;
-    }
-
-    *((unsigned int *)(PIF_RAMb + (address & 0x7FF) - 0x7C0)) = sl(word);
-    if ((address & 0x7FF) == 0x7FC)
-    {
-        if (PIF_RAMb[0x3F] == 0x08)
-        {
-            PIF_RAMb[0x3F] = 0;
-            update_count();
-            add_interupt_event(SI_INT, /*0x100*/0x900);
-        }
-        else
-            update_pif_write();
-    }
+    write_pif_ram(&g_si, address, word, ~0U);
 }
 
 void write_pifb(void)
 {
-    if ((*address_low > 0x7FF) || (*address_low < 0x7C0))
-    {
-        DebugMessage(M64MSG_ERROR, "writing a byte in PIF at invalid address 0x%x", address);
-        return;
-    }
+    unsigned shift = bshift(address);
+    uint32_t value = (uint32_t)cpu_byte << shift;
+    uint32_t mask = (uint32_t)0xff << shift;
 
-    *(PIF_RAMb + (address & 0x7FF) - 0x7C0) = cpu_byte;
-    if ((address & 0x7FF) == 0x7FF)
-    {
-        if (PIF_RAMb[0x3F] == 0x08)
-        {
-            PIF_RAMb[0x3F] = 0;
-            update_count();
-            add_interupt_event(SI_INT, /*0x100*/0x900);
-        }
-        else
-            update_pif_write();
-    }
+    write_pif_ram(&g_si, address, value, mask);
 }
 
 void write_pifh(void)
 {
-    if ((*address_low > 0x7FF) || (*address_low < 0x7C0))
-    {
-        DebugMessage(M64MSG_ERROR, "writing a hword in PIF at invalid address 0x%x", address);
-        return;
-    }
+    unsigned shift = hshift(address);
+    uint32_t value = (uint32_t)hword << shift;
+    uint32_t mask = (uint32_t)0xffff << shift;
 
-    *(PIF_RAMb + (address & 0x7FF) - 0x7C0) = hword >> 8;
-    *(PIF_RAMb + ((address+1) & 0x7FF) - 0x7C0) = hword & 0xFF;
-    if ((address & 0x7FF) == 0x7FE)
-    {
-        if (PIF_RAMb[0x3F] == 0x08)
-        {
-            PIF_RAMb[0x3F] = 0;
-            update_count();
-            add_interupt_event(SI_INT, /*0x100*/0x900);
-        }
-        else
-            update_pif_write();
-    }
+    write_pif_ram(&g_si, address, value, mask);
 }
 
 void write_pifd(void)
 {
-    if ((*address_low > 0x7FF) || (*address_low < 0x7C0))
-    {
-        DebugMessage(M64MSG_ERROR, "writing a double word in PIF at 0x%x", address);
-        return;
-    }
-
-    *((unsigned int *)(PIF_RAMb + (address & 0x7FF) - 0x7C0)) =
-        sl((unsigned int)(dword >> 32));
-    *((unsigned int *)(PIF_RAMb + (address & 0x7FF) - 0x7C0)) =
-        sl((unsigned int)(dword & 0xFFFFFFFF));
-    if ((address & 0x7FF) == 0x7F8)
-    {
-        if (PIF_RAMb[0x3F] == 0x08)
-        {
-            PIF_RAMb[0x3F] = 0;
-            update_count();
-            add_interupt_event(SI_INT, /*0x100*/0x900);
-        }
-        else
-            update_pif_write();
-    }
+    write_pif_ram(&g_si, address    , dword >> 32, ~0U);
+    write_pif_ram(&g_si, address + 4, dword      , ~0U);
 }
 
 unsigned int *fast_mem_access(unsigned int address)

@@ -40,8 +40,6 @@ void free_memory(void);
 #define write_byte_in_memory() writememb[address >>16]()
 #define write_hword_in_memory() writememh[address >>16]()
 #define write_dword_in_memory() writememd[address >>16]()
-extern unsigned int PIF_RAM[0x40/4];
-extern unsigned char *PIF_RAMb;
 
 extern ALIGN(16, struct rdram_controller g_rdram);
 extern struct ai_controller g_ai;
