@@ -29,6 +29,7 @@
 #include "memory/memory.h"
 #include "memory/dma.h"
 #include "pif.h"
+#include "r4300/r4300.h"
 #include "r4300/cp0.h"
 #include "r4300/interupt.h"
 #include "r4300/mi.h"
@@ -45,6 +46,63 @@ static const char* si_regs_name[SI_REGS_COUNT] =
     "SI_STATUS_REG"
 };
 #endif
+
+int delay_si = 0;
+
+static void dma_si_write(void)
+{
+    int i;
+
+    if (g_si.regs[SI_PIF_ADDR_WR64B_REG] != 0x1FC007C0)
+    {
+        DebugMessage(M64MSG_ERROR, "dma_si_write(): unknown SI use");
+        stop=1;
+    }
+
+    for (i = 0; i < PIF_RAM_SIZE; i += 4)
+    {
+        *((uint32_t*)(g_si.pif_ram + i)) = sl(g_rdram.ram[(g_si.regs[SI_DRAM_ADDR_REG]+i)/4]);
+    }
+
+    update_pif_write();
+    update_count();
+
+    if (delay_si) {
+        add_interupt_event(SI_INT, /*0x100*/0x900);
+    } else {
+        g_mi.regs[MI_INTR_REG] |= MI_INTR_SI;
+        g_si.regs[SI_STATUS_REG] |= 0x1000; // INTERRUPT
+        check_interupt();
+    }
+}
+
+static void dma_si_read(void)
+{
+    int i;
+
+    if (g_si.regs[SI_PIF_ADDR_RD64B_REG] != 0x1FC007C0)
+    {
+        DebugMessage(M64MSG_ERROR, "dma_si_read(): unknown SI use");
+        stop=1;
+    }
+
+    update_pif_read();
+
+    for (i = 0; i < PIF_RAM_SIZE; i += 4)
+    {
+        g_rdram.ram[(g_si.regs[SI_DRAM_ADDR_REG]+i)/4] = sl(*(uint32_t*)(g_si.pif_ram + i));
+    }
+
+    update_count();
+
+    if (delay_si) {
+        add_interupt_event(SI_INT, /*0x100*/0x900);
+    } else {
+        g_mi.regs[MI_INTR_REG] |= MI_INTR_SI;
+        g_si.regs[SI_STATUS_REG] |= 0x1000; // INTERRUPT
+        check_interupt();
+    }
+}
 
 
 

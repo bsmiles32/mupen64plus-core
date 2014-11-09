@@ -22,8 +22,6 @@
 #ifndef DMA_H
 #define DMA_H
 
-void dma_si_write(void);
-void dma_si_read(void);
 void dma_sp_write(void);
 void dma_sp_read(void);
 
