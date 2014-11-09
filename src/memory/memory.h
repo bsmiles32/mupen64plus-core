@@ -26,6 +26,8 @@
 #include "ai/controller.h"
 #include "pi/controller.h"
 #include "r4300/mi.h"
+#include "rdp/core.h"
+#include "rsp/core.h"
 #include "rdram/controller.h"
 #include "si/controller.h"
 #include "vi/controller.h"
@@ -47,6 +49,7 @@ extern struct mi_controller g_mi;
 extern struct pi_controller g_pi;
 extern struct si_controller g_si;
 extern struct vi_controller g_vi;
+extern struct rdp_core g_dp;
 extern struct rsp_core g_sp;
 
 extern unsigned int address, word;
@@ -62,33 +65,6 @@ extern void (*writemem[0x10000])(void);
 extern void (*writememb[0x10000])(void);
 extern void (*writememh[0x10000])(void);
 extern void (*writememd[0x10000])(void);
-
-extern unsigned int *readdp[0x10000];
-extern unsigned int *readdps[0x10000];
-
-typedef struct _DPC_register
-{
-   unsigned int dpc_start;
-   unsigned int dpc_end;
-   unsigned int dpc_current;
-   unsigned int w_dpc_status;
-   unsigned int dpc_status;
-   unsigned int dpc_clock;
-   unsigned int dpc_bufbusy;
-   unsigned int dpc_pipebusy;
-   unsigned int dpc_tmem;
-} DPC_register;
-
-typedef struct _DPS_register
-{
-   unsigned int dps_tbist;
-   unsigned int dps_test_mode;
-   unsigned int dps_buftest_addr;
-   unsigned int dps_buftest_data;
-} DPS_register;
-
-extern DPC_register dpc_register;
-extern DPS_register dps_register;
 
 extern unsigned int CIC_Chip;
 
@@ -271,8 +247,6 @@ void write_pif(void);
 void write_pifb(void);
 void write_pifh(void);
 void write_pifd(void);
-
-void make_w_dpc_status(void);
 
 /* Returns a pointer to a block of contiguous memory
  * Can access RDRAM, SP_DMEM, SP_IMEM and ROM, using TLB if necessary

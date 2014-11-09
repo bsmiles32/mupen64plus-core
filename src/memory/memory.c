@@ -68,9 +68,6 @@
 #endif
 
 /* definitions of the rcp's structures and memory area */
-DPC_register dpc_register;
-DPS_register dps_register;
-
 unsigned int CIC_Chip;
 
 ALIGN(16, struct rdram_controller g_rdram);
@@ -79,6 +76,7 @@ struct mi_controller g_mi;
 struct pi_controller g_pi;
 struct si_controller g_si;
 struct vi_controller g_vi;
+struct rdp_core g_dp;
 struct rsp_core g_sp;
 
 #if NEW_DYNAREC != NEW_DYNAREC_ARM
@@ -103,9 +101,6 @@ unsigned long long int dword;
 // addresse where the read value will be stored
 unsigned long long int* rdword;
 
-// trash : when we write to unmaped memory it is written here
-static unsigned int trash;
-
 // hash tables of read functions
 void (*readmem[0x10000])(void);
 void (*readmemb[0x10000])(void);
@@ -117,10 +112,6 @@ void (*writemem[0x10000])(void);
 void (*writememb[0x10000])(void);
 void (*writememd[0x10000])(void);
 void (*writememh[0x10000])(void);
-
-// memory sections
-unsigned int *readdp[0x10000];
-unsigned int *readdps[0x10000];
 
 // the frameBufferInfos
 static FrameBufferInfo frameBufferInfos[6];
@@ -363,7 +354,9 @@ int init_memory(int DoByteSwap)
         writememd[0xa400+i] = write_nothingd;
     }
 
-    //init rdp command registers
+    init_rdp(&g_dp);
+
+    /* map rdp regsters */
     readmem[0x8410] = read_dp;
     readmem[0xa410] = read_dp;
     readmemb[0x8410] = read_dpb;
@@ -380,25 +373,6 @@ int init_memory(int DoByteSwap)
     writememh[0xa410] = write_dph;
     writememd[0x8410] = write_dpd;
     writememd[0xa410] = write_dpd;
-    dpc_register.dpc_start=0;
-    dpc_register.dpc_end=0;
-    dpc_register.dpc_current=0;
-    dpc_register.w_dpc_status=0;
-    dpc_register.dpc_status=0;
-    dpc_register.dpc_clock=0;
-    dpc_register.dpc_bufbusy=0;
-    dpc_register.dpc_pipebusy=0;
-    dpc_register.dpc_tmem=0;
-    readdp[0x0] = &dpc_register.dpc_start;
-    readdp[0x4] = &dpc_register.dpc_end;
-    readdp[0x8] = &dpc_register.dpc_current;
-    readdp[0xc] = &dpc_register.dpc_status;
-    readdp[0x10] = &dpc_register.dpc_clock;
-    readdp[0x14] = &dpc_register.dpc_bufbusy;
-    readdp[0x18] = &dpc_register.dpc_pipebusy;
-    readdp[0x1c] = &dpc_register.dpc_tmem;
-
-    for (i=0x20; i<0x10000; i++) readdp[i] = &trash;
     for (i=1; i<0x10; i++)
     {
         readmem[0x8410+i] = read_nothing;
@@ -419,7 +393,6 @@ int init_memory(int DoByteSwap)
         writememd[0xa410+i] = write_nothingd;
     }
 
-    //init rsp span registers
     readmem[0x8420] = read_dps;
     readmem[0xa420] = read_dps;
     readmemb[0x8420] = read_dpsb;
@@ -436,16 +409,6 @@ int init_memory(int DoByteSwap)
     writememh[0xa420] = write_dpsh;
     writememd[0x8420] = write_dpsd;
     writememd[0xa420] = write_dpsd;
-    dps_register.dps_tbist=0;
-    dps_register.dps_test_mode=0;
-    dps_register.dps_buftest_addr=0;
-    dps_register.dps_buftest_data=0;
-    readdps[0x0] = &dps_register.dps_tbist;
-    readdps[0x4] = &dps_register.dps_test_mode;
-    readdps[0x8] = &dps_register.dps_buftest_addr;
-    readdps[0xc] = &dps_register.dps_buftest_data;
-
-    for (i=0x10; i<0x10000; i++) readdps[i] = &trash;
     for (i=1; i<0x10; i++)
     {
         readmem[0x8420+i] = read_nothing;
@@ -870,10 +833,10 @@ void do_SP_Task(void)
     int save_pc = g_sp.regs2[SP_PC_REG] & ~0xfff;
     if (g_sp.mem[0xfc0/4] == 1)
     {
-        if (dpc_register.dpc_status & 0x2) // DP frozen (DK64, BC)
+        if (g_dp.dpc_regs[DPC_STATUS_REG] & 0x2) // DP frozen (DK64, BC)
         {
             // don't do the task now
-            // the task will be done when DP is unfreezed (see update_DPC)
+            // the task will be done when DP is unfreezed (see write_dpc_regs)
             return;
         }
         
@@ -1126,50 +1089,6 @@ void do_SP_Task(void)
         g_mi.regs[MI_INTR_REG] &= ~MI_INTR_SP;
         g_sp.regs[SP_STATUS_REG] &= ~0x203;
     }
-}
-
-void make_w_dpc_status(void)
-{
-    dpc_register.w_dpc_status = 0;
-
-    if ((dpc_register.dpc_status & 0x0001) == 0)
-        dpc_register.w_dpc_status |= 0x0000001;
-    else
-        dpc_register.w_dpc_status |= 0x0000002;
-
-    if ((dpc_register.dpc_status & 0x0002) == 0)
-        dpc_register.w_dpc_status |= 0x0000004;
-    else
-        dpc_register.w_dpc_status |= 0x0000008;
-
-    if ((dpc_register.dpc_status & 0x0004) == 0)
-        dpc_register.w_dpc_status |= 0x0000010;
-    else
-        dpc_register.w_dpc_status |= 0x0000020;
-}
-
-static void update_DPC(void)
-{
-    if (dpc_register.w_dpc_status & 0x1) // clear xbus_dmem_dma
-        dpc_register.dpc_status &= ~0x1;
-    if (dpc_register.w_dpc_status & 0x2) // set xbus_dmem_dma
-        dpc_register.dpc_status |= 0x1;
-
-    if (dpc_register.w_dpc_status & 0x4) // clear freeze
-    {
-        dpc_register.dpc_status &= ~0x2;
-
-        // see do_SP_task for more info
-        if ((g_sp.regs[SP_STATUS_REG] & 0x3) == 0) // !halt && !broke
-            do_SP_Task();
-    }
-    if (dpc_register.w_dpc_status & 0x8) // set freeze
-        dpc_register.dpc_status |= 0x2;
-
-    if (dpc_register.w_dpc_status & 0x10) // clear flush
-        dpc_register.dpc_status &= ~0x4;
-    if (dpc_register.w_dpc_status & 0x20) // set flush
-        dpc_register.dpc_status |= 0x4;
 }
 
 void read_nothing(void)
@@ -1772,221 +1691,132 @@ void write_rspd(void)
 
 void read_dp(void)
 {
-    *rdword = *(readdp[*address_low]);
+    uint32_t value;
+
+    read_dpc_regs(&g_dp, address, &value);
+    *rdword = value;
 }
 
 void read_dpb(void)
 {
-    *rdword = *((unsigned char*)readdp[*address_low & 0xfffc]
-                + ((*address_low&3)^S8) );
+    uint32_t value;
+    unsigned shift = bshift(address);
+
+    read_dpc_regs(&g_dp, address, &value);
+    *rdword = (value >> shift) & 0xff;
 }
 
 void read_dph(void)
 {
-    *rdword = *((unsigned short*)((unsigned char*)readdp[*address_low & 0xfffc]
-                                  + ((*address_low&3)^S16) ));
+    uint32_t value;
+    unsigned shift = hshift(address);
+
+    read_dpc_regs(&g_dp, address, &value);
+    *rdword = (value >> shift) & 0xffff;
 }
 
 void read_dpd(void)
 {
-    *rdword = ((unsigned long long int)(*readdp[*address_low])<<32) |
-              *readdp[*address_low+4];
+    uint32_t w[2];
+
+    read_dpc_regs(&g_dp, address    , &w[0]);
+    read_dpc_regs(&g_dp, address + 4, &w[1]);
+
+    *rdword = ((uint64_t)w[0] << 32) | w[1];
 }
 
 void write_dp(void)
 {
-    switch (*address_low)
-    {
-    case 0xc:
-        dpc_register.w_dpc_status = word;
-        update_DPC();
-    case 0x8:
-    case 0x10:
-    case 0x14:
-    case 0x18:
-    case 0x1c:
-        return;
-        break;
-    }
-    *readdp[*address_low] = word;
-    switch (*address_low)
-    {
-    case 0x0:
-        dpc_register.dpc_current = dpc_register.dpc_start;
-        break;
-    case 0x4:
-        gfx.processRDPList();
-        g_mi.regs[MI_INTR_REG] |= MI_INTR_DP;
-        check_interupt();
-        break;
-    }
+    write_dpc_regs(&g_dp, address, word, ~0U);
 }
 
 void write_dpb(void)
 {
-    switch (*address_low)
-    {
-    case 0xc:
-    case 0xd:
-    case 0xe:
-    case 0xf:
-        *((unsigned char*)&dpc_register.w_dpc_status
-          + ((*address_low&3)^S8) ) = cpu_byte;
-        update_DPC();
-    case 0x8:
-    case 0x9:
-    case 0xa:
-    case 0xb:
-    case 0x10:
-    case 0x11:
-    case 0x12:
-    case 0x13:
-    case 0x14:
-    case 0x15:
-    case 0x16:
-    case 0x17:
-    case 0x18:
-    case 0x19:
-    case 0x1a:
-    case 0x1b:
-    case 0x1c:
-    case 0x1d:
-    case 0x1e:
-    case 0x1f:
-        return;
-        break;
-    }
-    *((unsigned char*)readdp[*address_low & 0xfffc]
-      + ((*address_low&3)^S8) ) = cpu_byte;
-    switch (*address_low)
-    {
-    case 0x0:
-    case 0x1:
-    case 0x2:
-    case 0x3:
-        dpc_register.dpc_current = dpc_register.dpc_start;
-        break;
-    case 0x4:
-    case 0x5:
-    case 0x6:
-    case 0x7:
-        gfx.processRDPList();
-        g_mi.regs[MI_INTR_REG] |= MI_INTR_DP;
-        check_interupt();
-        break;
-    }
+    unsigned shift = bshift(address);
+    uint32_t value = (uint32_t)cpu_byte << shift;
+    uint32_t mask = (uint32_t)0xff << shift;
+
+    write_dpc_regs(&g_dp, address, value, mask);
 }
 
 void write_dph(void)
 {
-    switch (*address_low)
-    {
-    case 0xc:
-    case 0xe:
-        *((unsigned short*)((unsigned char*)&dpc_register.w_dpc_status
-                            + ((*address_low&3)^S16) )) = hword;
-        update_DPC();
-    case 0x8:
-    case 0xa:
-    case 0x10:
-    case 0x12:
-    case 0x14:
-    case 0x16:
-    case 0x18:
-    case 0x1a:
-    case 0x1c:
-    case 0x1e:
-        return;
-        break;
-    }
-    *((unsigned short*)((unsigned char*)readdp[*address_low & 0xfffc]
-                        + ((*address_low&3)^S16) )) = hword;
-    switch (*address_low)
-    {
-    case 0x0:
-    case 0x2:
-        dpc_register.dpc_current = dpc_register.dpc_start;
-        break;
-    case 0x4:
-    case 0x6:
-        gfx.processRDPList();
-        g_mi.regs[MI_INTR_REG] |= MI_INTR_DP;
-        check_interupt();
-        break;
-    }
+    unsigned shift = hshift(address);
+    uint32_t value = (uint32_t)hword << shift;
+    uint32_t mask = (uint32_t)0xffff << shift;
+
+    write_dpc_regs(&g_dp, address, value, mask);
 }
 
 void write_dpd(void)
 {
-    switch (*address_low)
-    {
-    case 0x8:
-        dpc_register.w_dpc_status = (unsigned int) (dword & 0xFFFFFFFF);
-        update_DPC();
-        return;
-        break;
-    case 0x10:
-    case 0x18:
-        return;
-        break;
-    }
-    *readdp[*address_low] = (unsigned int) (dword >> 32);
-    *readdp[*address_low+4] = (unsigned int) (dword & 0xFFFFFFFF);
-    switch (*address_low)
-    {
-    case 0x0:
-        dpc_register.dpc_current = dpc_register.dpc_start;
-        gfx.processRDPList();
-        g_mi.regs[MI_INTR_REG] |= MI_INTR_DP;
-        check_interupt();
-        break;
-    }
+    write_dpc_regs(&g_dp, address    , dword >> 32, ~0U);
+    write_dpc_regs(&g_dp, address + 4, dword      , ~0U);
 }
 
 void read_dps(void)
 {
-    *rdword = *(readdps[*address_low]);
+    uint32_t value;
+
+    read_dps_regs(&g_dp, address, &value);
+    *rdword = value;
 }
 
 void read_dpsb(void)
 {
-    *rdword = *((unsigned char*)readdps[*address_low & 0xfffc]
-                + ((*address_low&3)^S8) );
+    uint32_t value;
+    unsigned shift = bshift(address);
+
+    read_dps_regs(&g_dp, address, &value);
+    *rdword = (value >> shift) & 0xff;
 }
 
 void read_dpsh(void)
 {
-    *rdword = *((unsigned short*)((unsigned char*)readdps[*address_low & 0xfffc]
-                                  + ((*address_low&3)^S16) ));
+    uint32_t value;
+    unsigned shift = hshift(address);
+
+    read_dps_regs(&g_dp, address, &value);
+    *rdword = (value >> shift) & 0xffff;
 }
 
 void read_dpsd(void)
 {
-    *rdword = ((unsigned long long int)(*readdps[*address_low])<<32) |
-              *readdps[*address_low+4];
+    uint32_t w[2];
+
+    read_dps_regs(&g_dp, address    , &w[0]);
+    read_dps_regs(&g_dp, address + 4, &w[1]);
+
+    *rdword = ((uint64_t)w[0] << 32) | w[1];
 }
 
 void write_dps(void)
 {
-    *readdps[*address_low] = word;
+    write_dps_regs(&g_dp, address, word, ~0U);
 }
 
 void write_dpsb(void)
 {
-    *((unsigned char*)readdps[*address_low & 0xfffc]
-      + ((*address_low&3)^S8) ) = cpu_byte;
+    unsigned shift = bshift(address);
+    uint32_t value = (uint32_t)cpu_byte << shift;
+    uint32_t mask = (uint32_t)0xff << shift;
+
+    write_dps_regs(&g_dp, address, value, mask);
 }
 
 void write_dpsh(void)
 {
-    *((unsigned short*)((unsigned char*)readdps[*address_low & 0xfffc]
-                        + ((*address_low&3)^S16) )) = hword;
+    unsigned shift = hshift(address);
+    uint32_t value = (uint32_t)hword << shift;
+    uint32_t mask = (uint32_t)0xffff << shift;
+
+    write_dps_regs(&g_dp, address, value, mask);
 }
 
 void write_dpsd(void)
 {
-    *readdps[*address_low] = (unsigned int) (dword >> 32);
-    *readdps[*address_low+4] = (unsigned int) (dword & 0xFFFFFFFF);
+    write_dps_regs(&g_dp, address    , dword >> 32, ~0U);
+    write_dps_regs(&g_dp, address + 4, dword      , ~0U);
 }
 
 void read_mi(void)

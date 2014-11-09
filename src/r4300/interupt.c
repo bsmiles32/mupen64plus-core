@@ -574,8 +574,8 @@ void gen_interupt(void)
     
         case DP_INT:
             remove_interupt_event();
-            dpc_register.dpc_status &= ~2;
-            dpc_register.dpc_status |= 0x81;
+            g_dp.dpc_regs[DPC_STATUS_REG] &= ~0x2;
+            g_dp.dpc_regs[DPC_STATUS_REG] |= 0x81;
             g_mi.regs[MI_INTR_REG] |= MI_INTR_DP;
             if (g_mi.regs[MI_INTR_REG] & g_mi.regs[MI_INTR_MASK_REG])
                 g_cp0_regs[CP0_CAUSE_REG] = (g_cp0_regs[CP0_CAUSE_REG] | 0x400) & 0xFFFFFF83;

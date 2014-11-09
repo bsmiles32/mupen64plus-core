@@ -412,6 +412,7 @@ SOURCE = \
 	$(SRCDIR)/r4300/reset.c \
 	$(SRCDIR)/r4300/tlb.c \
 	$(SRCDIR)/rdram/controller.c \
+	$(SRCDIR)/rdp/core.c \
 	$(SRCDIR)/rsp/core.c \
 	$(SRCDIR)/si/controller.c \
 	$(SRCDIR)/vi/controller.c \
