@@ -28,7 +28,7 @@
 #include "api/callbacks.h"
 #include "memory/memory.h"
 #include "memory/dma.h"
-#include "memory/pif.h"
+#include "pif.h"
 #include "r4300/cp0.h"
 #include "r4300/interupt.h"
 #include "r4300/mi.h"

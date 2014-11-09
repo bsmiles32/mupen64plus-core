@@ -390,8 +390,6 @@ SOURCE = \
 	$(SRCDIR)/main/workqueue.c \
 	$(SRCDIR)/memory/dma.c \
 	$(SRCDIR)/memory/memory.c \
-	$(SRCDIR)/memory/n64_cic_nus_6105.c \
-	$(SRCDIR)/memory/pif.c \
 	$(SRCDIR)/pi/controller.c \
 	$(SRCDIR)/pi/flashram.c \
 	$(SRCDIR)/plugin/plugin.c \
@@ -415,6 +413,8 @@ SOURCE = \
 	$(SRCDIR)/rdp/core.c \
 	$(SRCDIR)/rsp/core.c \
 	$(SRCDIR)/si/controller.c \
+	$(SRCDIR)/si/n64_cic_nus_6105.c \
+	$(SRCDIR)/si/pif.c \
 	$(SRCDIR)/vi/controller.c \
 	$(SRCDIR)/osd/screenshot.cpp
 ifeq ("$(OS)","MINGW")

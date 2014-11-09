@@ -33,7 +33,6 @@
 
 #include "memory.h"
 #include "dma.h"
-#include "pif.h"
 
 #include "ai/controller.h"
 #include "pi/controller.h"
@@ -51,6 +50,7 @@
 #include "rdram/controller.h"
 #include "rsp/core.h"
 #include "si/controller.h"
+#include "si/pif.h"
 #include "vi/controller.h"
 
 #include "api/callbacks.h"
