@@ -67,8 +67,6 @@
 #endif
 
 /* definitions of the rcp's structures and memory area */
-unsigned int CIC_Chip;
-
 ALIGN(16, struct rdram_controller g_rdram);
 struct ai_controller g_ai;
 struct mi_controller g_mi;
@@ -140,7 +138,6 @@ static inline unsigned int hshift(uint32_t address)
 int init_memory(int DoByteSwap)
 {
     int i;
-    long long CRC = 0;
 
     if (DoByteSwap != 0)
     {
@@ -621,7 +618,8 @@ int init_memory(int DoByteSwap)
         writememd[0xa470+i] = write_nothingd;
     }
 
-    init_si(&g_si);
+    enum cic_type cic = detect_cic_type(rom + 0x40);
+    init_si(&g_si, cic);
 
     /* map SI registers */
     readmem[0x8480] = read_si;
@@ -752,27 +750,6 @@ int init_memory(int DoByteSwap)
         writememh[0xb000+i] = write_nothingh;
         writememd[0x9000+i] = write_nothingd;
         writememd[0xb000+i] = write_nothingd;
-    }
-
-    // init CIC type
-    for (i = 0x40/4; i < (0x1000/4); i++)
-        CRC += ((uint32_t*)rom)[i];
-
-    switch(CRC)
-    {
-        default:
-            DebugMessage(M64MSG_WARNING, "Unknown CIC type (%08x)! using CIC 6102.", CRC);
-        /* CIC 6102 */
-        case 0x000000D057C85244LL: CIC_Chip = 2; break;
-        /* CIC 6101 */
-        case 0x000000D0027FDF31LL:
-        case 0x000000CFFB631223LL: CIC_Chip = 1; break;
-        /* CIC 6103 */
-        case 0x000000D6497E414BLL: CIC_Chip = 3; break;
-        /* CIC 6105 */
-        case 0x0000011A49F60E96LL: CIC_Chip = 5; break;
-        /* CIC 6106 */
-        case 0x000000D6D5BE5580LL: CIC_Chip = 6; break;
     }
 
     /* map PIF RAM */

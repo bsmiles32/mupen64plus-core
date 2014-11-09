@@ -37,6 +37,7 @@
 #include "r4300/mi.h"
 #include "r4300/r4300.h"
 #include "r4300/new_dynarec/new_dynarec.h"
+#include "si/controller.h"
 
 #include "main/main.h"
 #include "main/rom.h"
@@ -263,12 +264,12 @@ static void dma_pi_write(void)
     // (This is just a convenient way to run this code once at the beginning)
     if (g_pi.regs[PI_CART_ADDR_REG] == 0x10001000)
     {
-        switch (CIC_Chip)
+        switch (g_si.cic)
         {
-        case 1:
-        case 2:
-        case 3:
-        case 6:
+        case CIC_6101:
+        case CIC_6102:
+        case CIC_6103:
+        case CIC_6106:
         {
             if (ConfigGetParamInt(g_CoreConfig, "DisableExtraMem"))
             {
@@ -280,7 +281,7 @@ static void dma_pi_write(void)
             }
             break;
         }
-        case 5:
+        case CIC_6105:
         {
             if (ConfigGetParamInt(g_CoreConfig, "DisableExtraMem"))
             {

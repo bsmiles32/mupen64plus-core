@@ -66,8 +66,6 @@ extern void (*writememb[0x10000])(void);
 extern void (*writememh[0x10000])(void);
 extern void (*writememd[0x10000])(void);
 
-extern unsigned int CIC_Chip;
-
 #ifndef M64P_BIG_ENDIAN
 #if defined(__GNUC__) && (__GNUC__ > 4  || (__GNUC__ == 4 && __GNUC_MINOR__ >= 2))
 #define sl(x) __builtin_bswap32(x)

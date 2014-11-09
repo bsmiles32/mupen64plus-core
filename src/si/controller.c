@@ -105,9 +105,11 @@ static void dma_si_read(void)
 
 
 
-int init_si(struct si_controller* si)
+int init_si(struct si_controller* si, enum cic_type cic)
 {
     memset(si, 0, sizeof(*si));
+
+    si->cic = cic;
 
     return 0;
 }
@@ -220,6 +222,29 @@ int write_pif_ram(struct si_controller* si,
     }
 
     DebugMessage(M64MSG_WARNING, "pif_ram[0x%02x] <- %08x & %08x", addr, value, mask);
+
+    return 0;
+}
+
+enum cic_type detect_cic_type(const void* ipl3)
+{
+    unsigned long long crc = 0;
+    size_t i = 0;
+
+    for(i = 0; i < 0xfc0/4; ++i)
+        crc += ((uint32_t*)ipl3)[i];
+
+    switch(crc)
+    {
+        default:
+            DebugMessage(M64MSG_WARNING, "Unknown CIC type (%08x)! using CIC 6102.", crc);
+        case 0x000000D057C85244LL: return CIC_6102;
+        case 0x000000D0027FDF31LL:
+        case 0x000000CFFB631223LL: return CIC_6101;
+        case 0x000000D6497E414BLL: return CIC_6103;
+        case 0x0000011A49F60E96LL: return CIC_6105;
+        case 0x000000D6D5BE5580LL: return CIC_6106;
+    }
 
     return 0;
 }

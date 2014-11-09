@@ -41,6 +41,15 @@ enum si_registers
 
 enum { PIF_RAM_SIZE = 0x40 };
 
+enum cic_type
+{
+    CIC_6101 = 1,
+    CIC_6102 = 2,
+    CIC_6103 = 3,
+    CIC_6105 = 5,
+    CIC_6106 = 6,
+};
+
 /**
  * Controller
  **/
@@ -48,10 +57,11 @@ struct si_controller
 {
     uint32_t regs[SI_REGS_COUNT];
     uint8_t pif_ram[PIF_RAM_SIZE];
+    enum cic_type cic;
 };
 
 
-int init_si(struct si_controller* si);
+int init_si(struct si_controller* si, enum cic_type cic);
 
 
 int read_si_regs(struct si_controller* si,
@@ -64,6 +74,8 @@ int read_pif_ram(struct si_controller* si,
 int write_pif_ram(struct si_controller* si,
                   uint32_t address, uint32_t value, uint32_t mask);
 
+
+enum cic_type detect_cic_type(const void* ipl3);
 
 #endif
 

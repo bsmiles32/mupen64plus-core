@@ -31,6 +31,7 @@
 
 #include "ai/controller.h"
 #include "rsp/core.h"
+#include "si/controller.h"
 #include "vi/controller.h"
 
 #include "r4300.h"
@@ -161,18 +162,18 @@ static unsigned int get_tv_type(void)
 
 static unsigned int get_cic_seed(void)
 {
-    switch(CIC_Chip)
+    switch(g_si.cic)
     {
         default:
-            DebugMessage(M64MSG_WARNING, "Unknown CIC (%d)! using CIC 6102.", CIC_Chip);
-        case 1:
-        case 2:
+            DebugMessage(M64MSG_WARNING, "Unknown CIC (%d)! using CIC 6102.", g_si.cic);
+        case CIC_6101:
+        case CIC_6102:
             return 0x3f;
-        case 3:
+        case CIC_6103:
             return 0x78;
-        case 5:
+        case CIC_6105:
             return 0x91;
-        case 6:
+        case CIC_6106:
             return 0x85;
     }
 }
