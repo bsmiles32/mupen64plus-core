@@ -42,7 +42,7 @@
 
 #include "ai/controller.h"
 #include "memory/memory.h"
-#include "memory/flashram.h"
+#include "pi/flashram.h"
 #include "r4300/tlb.h"
 #include "r4300/cp0.h"
 #include "r4300/cp1.h"

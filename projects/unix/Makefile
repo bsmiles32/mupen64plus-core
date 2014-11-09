@@ -389,11 +389,11 @@ SOURCE = \
 	$(SRCDIR)/main/sdl_key_converter.c \
 	$(SRCDIR)/main/workqueue.c \
 	$(SRCDIR)/memory/dma.c \
-	$(SRCDIR)/memory/flashram.c \
 	$(SRCDIR)/memory/memory.c \
 	$(SRCDIR)/memory/n64_cic_nus_6105.c \
 	$(SRCDIR)/memory/pif.c \
 	$(SRCDIR)/pi/controller.c \
+	$(SRCDIR)/pi/flashram.c \
 	$(SRCDIR)/plugin/plugin.c \
 	$(SRCDIR)/plugin/dummy_video.c \
 	$(SRCDIR)/plugin/dummy_audio.c \

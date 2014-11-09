@@ -28,7 +28,7 @@
 #include "dma.h"
 #include "memory.h"
 #include "pif.h"
-#include "flashram.h"
+#include "pi/flashram.h"
 
 #include "r4300/r4300.h"
 #include "r4300/cached_interp.h"

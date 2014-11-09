@@ -34,10 +34,10 @@
 #include "memory.h"
 #include "dma.h"
 #include "pif.h"
-#include "flashram.h"
 
 #include "ai/controller.h"
 #include "pi/controller.h"
+#include "pi/flashram.h"
 
 #include "r4300/r4300.h"
 #include "r4300/cached_interp.h"
