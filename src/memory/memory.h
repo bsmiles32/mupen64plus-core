@@ -32,7 +32,7 @@
 #include "si/controller.h"
 #include "vi/controller.h"
 
-int init_memory(int DoByteSwap);
+int init_memory(void);
 void free_memory(void);
 #define read_word_in_memory() readmem[address>>16]()
 #define read_byte_in_memory() readmemb[address>>16]()

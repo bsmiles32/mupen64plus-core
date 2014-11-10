@@ -756,13 +756,11 @@ m64p_error main_run(void)
     // initialize memory, and do byte-swapping if it's not been done yet
     if (g_MemHasBeenBSwapped == 0)
     {
-        init_memory(1);
+        swap_buffer(rom, 4, rom_size/4);
         g_MemHasBeenBSwapped = 1;
     }
-    else
-    {
-        init_memory(0);
-    }
+
+    init_memory();
 
     // Attach rom to plugins
     if (!gfx.romOpen())

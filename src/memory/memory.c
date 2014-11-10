@@ -125,16 +125,9 @@ static inline unsigned int hshift(uint32_t address)
 }
 
 
-int init_memory(int DoByteSwap)
+int init_memory(void)
 {
     int i;
-
-    if (DoByteSwap != 0)
-    {
-        //swap rom
-        unsigned int *roml = (unsigned int *) rom;
-        for (i=0; i<(rom_size/4); i++) roml[i] = sl(roml[i]);
-    }
 
     //init hash tables
     for (i=0; i<(0x10000); i++)
