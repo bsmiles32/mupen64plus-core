@@ -356,6 +356,201 @@ void free_memory(void)
 {
 }
 
+void unprotect_framebuffers(void)
+{
+    if (gfx.fBGetFrameBufferInfo && gfx.fBRead && gfx.fBWrite &&
+            frameBufferInfos[0].addr)
+    {
+        int i;
+        for (i=0; i<6; i++)
+        {
+            if (frameBufferInfos[i].addr)
+            {
+                int j;
+                int start = frameBufferInfos[i].addr & 0x7FFFFF;
+                int end = start + frameBufferInfos[i].width*
+                          frameBufferInfos[i].height*
+                          frameBufferInfos[i].size - 1;
+                start = start >> 16;
+                end = end >> 16;
+
+                for (j=start; j<=end; j++)
+                {
+#ifdef DBG
+                    if (lookup_breakpoint(0x80000000 + j * 0x10000, 0x10000,
+                                          M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_READ) != -1)
+                    {
+                        map_region_r(0x8000+j,
+                                read_rdramb_break,
+                                read_rdramh_break,
+                                read_rdram_break,
+                                read_rdramd_break);
+                    }
+                    else
+                    {
+#endif
+                        map_region_r(0x8000+j, R(rdram));
+#ifdef DBG
+                    }
+                    if (lookup_breakpoint(0xa0000000 + j * 0x10000, 0x10000,
+                                          M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_READ) != -1)
+                    {
+                        map_region_r(0xa000+j,
+                                read_rdramb_break,
+                                read_rdramh_break,
+                                read_rdram_break,
+                                read_rdramd_break);
+                    }
+                    else
+                    {
+#endif
+                        map_region_r(0xa000+j, R(rdram));
+#ifdef DBG
+                    }
+                    if (lookup_breakpoint(0x80000000 + j * 0x10000, 0x10000,
+                                          M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_WRITE) != -1)
+                    {
+                        map_region_w(0x8000+j,
+                                write_rdramb_break,
+                                write_rdramh_break,
+                                write_rdram_break,
+                                write_rdramd_break);
+                    }
+                    else
+                    {
+#endif
+                        map_region_w(0x8000+j, W(rdram));
+#ifdef DBG
+                    }
+                    if (lookup_breakpoint(0xa0000000 + j * 0x10000, 0x10000,
+                                          M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_WRITE) != -1)
+                    {
+                        map_region_w(0xa000+j,
+                                write_rdramb_break,
+                                write_rdramh_break,
+                                write_rdram_break,
+                                write_rdramd_break);
+                    }
+                    else
+                    {
+#endif
+                        map_region_w(0xa000+j, W(rdram));
+#ifdef DBG
+                    }
+#endif
+                }
+            }
+        }
+    }
+}
+
+void protect_framebuffers(void)
+{
+    if (gfx.fBGetFrameBufferInfo && gfx.fBRead && gfx.fBWrite)
+        gfx.fBGetFrameBufferInfo(frameBufferInfos);
+    if (gfx.fBGetFrameBufferInfo && gfx.fBRead && gfx.fBWrite
+            && frameBufferInfos[0].addr)
+    {
+        int i;
+        for (i=0; i<6; i++)
+        {
+            if (frameBufferInfos[i].addr)
+            {
+                int j;
+                int start = frameBufferInfos[i].addr & 0x7FFFFF;
+                int end = start + frameBufferInfos[i].width*
+                          frameBufferInfos[i].height*
+                          frameBufferInfos[i].size - 1;
+                int start1 = start;
+                int end1 = end;
+                start >>= 16;
+                end >>= 16;
+                for (j=start; j<=end; j++)
+                {
+#ifdef DBG
+                    if (lookup_breakpoint(0x80000000 + j * 0x10000, 0x10000,
+                                          M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_READ) != -1)
+                    {
+                        map_region_r(0x8000+j,
+                                read_rdramFBb_break,
+                                read_rdramFBh_break,
+                                read_rdramFB_break,
+                                read_rdramFBd_break);
+                    }
+                    else
+                    {
+#endif
+                        map_region_r(0x8000+j, R(rdramFB));
+#ifdef DBG
+                    }
+                    if (lookup_breakpoint(0xa0000000 + j * 0x10000, 0x10000,
+                                          M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_READ) != -1)
+                    {
+                        map_region_r(0xa000+j,
+                                read_rdramFBb_break,
+                                read_rdramFBh_break,
+                                read_rdramFB_break,
+                                read_rdramFBd_break);
+                    }
+                    else
+                    {
+#endif
+                        map_region_r(0xa000+j, R(rdramFB));
+#ifdef DBG
+                    }
+                    if (lookup_breakpoint(0x80000000 + j * 0x10000, 0x10000,
+                                          M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_WRITE) != -1)
+                    {
+                        map_region_w(0x8000+j,
+                                write_rdramFBb_break,
+                                write_rdramFBh_break,
+                                write_rdramFB_break,
+                                write_rdramFBd_break);
+                    }
+                    else
+                    {
+#endif
+                        map_region_w(0x8000+j, W(rdramFB));
+#ifdef DBG
+                    }
+                    if (lookup_breakpoint(0xa0000000 + j * 0x10000, 0x10000,
+                                          M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_WRITE) != -1)
+                    {
+                        map_region_w(0xa000+j,
+                                write_rdramFBb_break,
+                                write_rdramFBh_break,
+                                write_rdramFB_break,
+                                write_rdramFBd_break);
+                    }
+                    else
+                    {
+#endif
+                        map_region_w(0xa000+j, W(rdramFB));
+#ifdef DBG
+                    }
+#endif
+                }
+                start <<= 4;
+                end <<= 4;
+                for (j=start; j<=end; j++)
+                {
+                    if (j>=start1 && j<=end1) framebufferRead[j]=1;
+                    else framebufferRead[j] = 0;
+                }
+
+                if (firstFrameBufferSetting)
+                {
+                    firstFrameBufferSetting = 0;
+                    fast_memory = 0;
+                    for (j=0; j<0x100000; j++)
+                        invalid_code[j] = 1;
+                }
+            }
+        }
+    }
+}
+
+
 void do_SP_Task(void)
 {
     int save_pc = g_sp.regs2[SP_PC_REG] & ~0xfff;
@@ -367,92 +562,9 @@ void do_SP_Task(void)
             // the task will be done when DP is unfreezed (see write_dpc_regs)
             return;
         }
-        
-        // unprotecting old frame buffers
-        if (gfx.fBGetFrameBufferInfo && gfx.fBRead && gfx.fBWrite &&
-                frameBufferInfos[0].addr)
-        {
-            int i;
-            for (i=0; i<6; i++)
-            {
-                if (frameBufferInfos[i].addr)
-                {
-                    int j;
-                    int start = frameBufferInfos[i].addr & 0x7FFFFF;
-                    int end = start + frameBufferInfos[i].width*
-                              frameBufferInfos[i].height*
-                              frameBufferInfos[i].size - 1;
-                    start = start >> 16;
-                    end = end >> 16;
 
-                    for (j=start; j<=end; j++)
-                    {
-#ifdef DBG
-                        if (lookup_breakpoint(0x80000000 + j * 0x10000, 0x10000,
-                                              M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_READ) != -1)
-                        {
-                            map_region_r(0x8000+j,
-                                    read_rdramb_break,
-                                    read_rdramh_break,
-                                    read_rdram_break,
-                                    read_rdramd_break);
-                        }
-                        else
-                        {
-#endif
-                            map_region_r(0x8000+j, R(rdram));
-#ifdef DBG
-                        }
-                        if (lookup_breakpoint(0xa0000000 + j * 0x10000, 0x10000,
-                                              M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_READ) != -1)
-                        {
-                            map_region_r(0xa000+j,
-                                    read_rdramb_break,
-                                    read_rdramh_break,
-                                    read_rdram_break,
-                                    read_rdramd_break);
-                        }
-                        else
-                        {
-#endif
-                            map_region_r(0xa000+j, R(rdram));
-#ifdef DBG
-                        }
-                        if (lookup_breakpoint(0x80000000 + j * 0x10000, 0x10000,
-                                              M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_WRITE) != -1)
-                        {
-                            map_region_w(0x8000+j,
-                                    write_rdramb_break,
-                                    write_rdramh_break,
-                                    write_rdram_break,
-                                    write_rdramd_break);
-                        }
-                        else
-                        {
-#endif
-                            map_region_w(0x8000+j, W(rdram));
-#ifdef DBG
-                        }
-                        if (lookup_breakpoint(0xa0000000 + j * 0x10000, 0x10000,
-                                              M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_WRITE) != -1)
-                        {
-                            map_region_w(0xa000+j,
-                                    write_rdramb_break,
-                                    write_rdramh_break,
-                                    write_rdram_break,
-                                    write_rdramd_break);
-                        }
-                        else
-                        {
-#endif
-                            map_region_w(0xa000+j, W(rdram));
-#ifdef DBG
-                        }
-#endif
-                    }
-                }
-            }
-        }
+        // unprotecting old frame buffers
+        unprotect_framebuffers();
 
         //gfx.processDList();
         g_sp.regs2[SP_PC_REG] &= 0xfff;
@@ -471,108 +583,7 @@ void do_SP_Task(void)
         g_sp.regs[SP_STATUS_REG] &= ~0x303;
 
         // protecting new frame buffers
-        if (gfx.fBGetFrameBufferInfo && gfx.fBRead && gfx.fBWrite)
-            gfx.fBGetFrameBufferInfo(frameBufferInfos);
-        if (gfx.fBGetFrameBufferInfo && gfx.fBRead && gfx.fBWrite
-                && frameBufferInfos[0].addr)
-        {
-            int i;
-            for (i=0; i<6; i++)
-            {
-                if (frameBufferInfos[i].addr)
-                {
-                    int j;
-                    int start = frameBufferInfos[i].addr & 0x7FFFFF;
-                    int end = start + frameBufferInfos[i].width*
-                              frameBufferInfos[i].height*
-                              frameBufferInfos[i].size - 1;
-                    int start1 = start;
-                    int end1 = end;
-                    start >>= 16;
-                    end >>= 16;
-                    for (j=start; j<=end; j++)
-                    {
-#ifdef DBG
-                        if (lookup_breakpoint(0x80000000 + j * 0x10000, 0x10000,
-                                              M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_READ) != -1)
-                        {
-                            map_region_r(0x8000+j,
-                                    read_rdramFBb_break,
-                                    read_rdramFBh_break,
-                                    read_rdramFB_break,
-                                    read_rdramFBd_break);
-                        }
-                        else
-                        {
-#endif
-                            map_region_r(0x8000+j, R(rdramFB));
-#ifdef DBG
-                        }
-                        if (lookup_breakpoint(0xa0000000 + j * 0x10000, 0x10000,
-                                              M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_READ) != -1)
-                        {
-                            map_region_r(0xa000+j,
-                                    read_rdramFBb_break,
-                                    read_rdramFBh_break,
-                                    read_rdramFB_break,
-                                    read_rdramFBd_break);
-                        }
-                        else
-                        {
-#endif
-                            map_region_r(0xa000+j, R(rdramFB));
-#ifdef DBG
-                        }
-                        if (lookup_breakpoint(0x80000000 + j * 0x10000, 0x10000,
-                                              M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_WRITE) != -1)
-                        {
-                            map_region_w(0x8000+j,
-                                    write_rdramFBb_break,
-                                    write_rdramFBh_break,
-                                    write_rdramFB_break,
-                                    write_rdramFBd_break);
-                        }
-                        else
-                        {
-#endif
-                            map_region_w(0x8000+j, W(rdramFB));
-#ifdef DBG
-                        }
-                        if (lookup_breakpoint(0xa0000000 + j * 0x10000, 0x10000,
-                                              M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_WRITE) != -1)
-                        {
-                            map_region_w(0xa000+j,
-                                    write_rdramFBb_break,
-                                    write_rdramFBh_break,
-                                    write_rdramFB_break,
-                                    write_rdramFBd_break);
-                        }
-                        else
-                        {
-#endif
-                            map_region_w(0xa000+j, W(rdramFB));
-#ifdef DBG
-                        }
-#endif
-                    }
-                    start <<= 4;
-                    end <<= 4;
-                    for (j=start; j<=end; j++)
-                    {
-                        if (j>=start1 && j<=end1) framebufferRead[j]=1;
-                        else framebufferRead[j] = 0;
-                    }
-
-                    if (firstFrameBufferSetting)
-                    {
-                        firstFrameBufferSetting = 0;
-                        fast_memory = 0;
-                        for (j=0; j<0x100000; j++)
-                            invalid_code[j] = 1;
-                    }
-                }
-            }
-        }
+        protect_framebuffers();
     }
     else if (g_sp.mem[0xfc0/4] == 2)
     {
