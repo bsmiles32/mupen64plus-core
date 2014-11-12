@@ -1407,38 +1407,45 @@ void write_flashram_commandd(void)
     DebugMessage(M64MSG_ERROR, "write_flashram_commandd() not implemented");
 }
 
-static unsigned int lastwrite = 0;
-
 void read_rom(void)
 {
-    if (lastwrite)
-    {
-        *rdword = lastwrite;
-        lastwrite = 0;
-    }
-    else
-        *rdword = *((unsigned int *)(rom + (address & 0x03FFFFFF)));
+    uint32_t value;
+
+    read_cart_rom(&g_pi, address, &value);
+    *rdword = value;
 }
 
 void read_romb(void)
 {
-    *rdword = *(rom + ((address^S8) & 0x03FFFFFF));
+    uint32_t value;
+    unsigned shift = bshift(address);
+
+    read_cart_rom(&g_pi, address, &value);
+    *rdword = (value >> shift) & 0xff;
 }
 
 void read_romh(void)
 {
-    *rdword = *((unsigned short *)(rom + ((address^S16) & 0x03FFFFFF)));
+    uint32_t value;
+    unsigned shift = hshift(address);
+
+    read_cart_rom(&g_pi, address, &value);
+    *rdword = (value >> shift) & 0xffff;
 }
 
 void read_romd(void)
 {
-    *rdword = ((unsigned long long)(*((unsigned int *)(rom+(address&0x03FFFFFF))))<<32)|
-              *((unsigned int *)(rom + ((address+4)&0x03FFFFFF)));
+    uint32_t w[2];
+
+    read_cart_rom(&g_pi, address    , &w[0]);
+    read_cart_rom(&g_pi, address + 4, &w[1]);
+
+    *rdword = ((uint64_t)w[0] << 32) | w[1];
 }
 
 void write_rom(void)
 {
-    lastwrite = word;
+    write_cart_rom(&g_pi, address, word, ~0U);
 }
 
 void read_pif(void)

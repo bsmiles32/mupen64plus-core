@@ -51,6 +51,7 @@ enum pi_registers
 struct pi_controller
 {
     uint32_t regs[PI_REGS_COUNT];
+    uint32_t cart_last_write;
 };
 
 
@@ -63,5 +64,10 @@ int read_pi_regs(struct pi_controller* pi,
 int write_pi_regs(struct pi_controller* pi,
                   uint32_t address, uint32_t value, uint32_t mask);
 
+int read_cart_rom(struct pi_controller* pi,
+                  uint32_t address, uint32_t* value);
+
+int write_cart_rom(struct pi_controller* pi,
+                   uint32_t address, uint32_t value, uint32_t mask);
 #endif
 

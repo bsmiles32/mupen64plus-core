@@ -383,3 +383,37 @@ int write_pi_regs(struct pi_controller* pi,
 
     return 0;
 }
+
+
+/**
+ * Cart ROM access functions
+ **/
+static inline uint32_t rom_address(uint32_t address)
+{
+    return (address & 0x03ffffff);
+}
+
+int read_cart_rom(struct pi_controller* pi,
+                  uint32_t address, uint32_t* value)
+{
+    uint32_t addr = rom_address(address);
+
+    if (pi->cart_last_write)
+    {
+        *value = pi->cart_last_write;
+        pi->cart_last_write = 0;
+    }
+    else
+        *value = *(uint32_t*)(rom + addr);
+
+    return 0;
+}
+
+int write_cart_rom(struct pi_controller* pi,
+                   uint32_t address, uint32_t value, uint32_t mask)
+{
+    pi->cart_last_write = value;
+
+    DebugMessage(M64MSG_VERBOSE, "Writing to ROM @%08x <- %08x", address, value);
+    return 0;
+}
