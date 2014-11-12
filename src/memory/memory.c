@@ -43,8 +43,6 @@
 #include "vi/controller.h"
 
 #include "api/callbacks.h"
-#include "main/main.h"
-#include "main/profile.h"
 #include "main/rom.h"
 #include "osal/preproc.h"
 #include "plugin/plugin.h"
@@ -547,70 +545,6 @@ void protect_framebuffers(void)
                 }
             }
         }
-    }
-}
-
-
-void do_SP_Task(void)
-{
-    int save_pc = g_sp.regs2[SP_PC_REG] & ~0xfff;
-    if (g_sp.mem[0xfc0/4] == 1)
-    {
-        if (g_dp.dpc_regs[DPC_STATUS_REG] & 0x2) // DP frozen (DK64, BC)
-        {
-            // don't do the task now
-            // the task will be done when DP is unfreezed (see write_dpc_regs)
-            return;
-        }
-
-        // unprotecting old frame buffers
-        unprotect_framebuffers();
-
-        //gfx.processDList();
-        g_sp.regs2[SP_PC_REG] &= 0xfff;
-        timed_section_start(TIMED_SECTION_GFX);
-        rsp.doRspCycles(0xFFFFFFFF);
-        timed_section_end(TIMED_SECTION_GFX);
-        g_sp.regs2[SP_PC_REG] |= save_pc;
-        new_frame();
-
-        update_count();
-        if (g_mi.regs[MI_INTR_REG] & MI_INTR_SP)
-            add_interupt_event(SP_INT, 1000);
-        if (g_mi.regs[MI_INTR_REG] & MI_INTR_DP)
-            add_interupt_event(DP_INT, 1000);
-        g_mi.regs[MI_INTR_REG] &= ~(MI_INTR_SP | MI_INTR_DP);
-        g_sp.regs[SP_STATUS_REG] &= ~0x303;
-
-        // protecting new frame buffers
-        protect_framebuffers();
-    }
-    else if (g_sp.mem[0xfc0/4] == 2)
-    {
-        //audio.processAList();
-        g_sp.regs2[SP_PC_REG] &= 0xfff;
-        timed_section_start(TIMED_SECTION_AUDIO);
-        rsp.doRspCycles(0xFFFFFFFF);
-        timed_section_end(TIMED_SECTION_AUDIO);
-        g_sp.regs2[SP_PC_REG] |= save_pc;
-
-        update_count();
-        if (g_mi.regs[MI_INTR_REG] & MI_INTR_SP)
-            add_interupt_event(SP_INT, 4000/*500*/);
-        g_mi.regs[MI_INTR_REG] &= ~MI_INTR_SP;
-        g_sp.regs[SP_STATUS_REG] &= ~0x303;
-    }
-    else
-    {
-        g_sp.regs2[SP_PC_REG] &= 0xfff;
-        rsp.doRspCycles(0xFFFFFFFF);
-        g_sp.regs2[SP_PC_REG] |= save_pc;
-
-        update_count();
-        if (g_mi.regs[MI_INTR_REG] & MI_INTR_SP)
-            add_interupt_event(SP_INT, 0/*100*/);
-        g_mi.regs[MI_INTR_REG] &= ~MI_INTR_SP;
-        g_sp.regs[SP_STATUS_REG] &= ~0x203;
     }
 }
 
