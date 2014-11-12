@@ -304,9 +304,12 @@ static void dma_pi_write(void)
 }
 
 
-int init_pi(struct pi_controller* pi)
+int init_pi(struct pi_controller* pi, uint8_t* cart_rom, size_t cart_rom_size)
 {
     memset(pi, 0, sizeof(*pi));
+
+    pi->cart_rom = cart_rom;
+    pi->cart_rom_size = cart_rom_size;
 
     return 0;
 }
@@ -404,7 +407,7 @@ int read_cart_rom(struct pi_controller* pi,
         pi->cart_last_write = 0;
     }
     else
-        *value = *(uint32_t*)(rom + addr);
+        *value = *(uint32_t*)(pi->cart_rom + addr);
 
     return 0;
 }

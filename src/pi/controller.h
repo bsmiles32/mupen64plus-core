@@ -22,6 +22,7 @@
 #ifndef M64P_PI_CONTROLLER_H
 #define M64P_PI_CONTROLLER_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 /**
@@ -51,12 +52,15 @@ enum pi_registers
 struct pi_controller
 {
     uint32_t regs[PI_REGS_COUNT];
+
+    uint8_t* cart_rom;
+    size_t cart_rom_size;
     uint32_t cart_last_write;
 };
 
 
 
-int init_pi(struct pi_controller* pi);
+int init_pi(struct pi_controller* pi, uint8_t* cart_rom, size_t cart_rom_size);
 
 
 int read_pi_regs(struct pi_controller* pi,
