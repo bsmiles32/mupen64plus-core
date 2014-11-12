@@ -33,9 +33,7 @@
 #include "r4300/cp0.h"
 #include "r4300/interupt.h"
 #include "r4300/mi.h"
-
-void protect_framebuffers(void);
-void unprotect_framebuffers(void);
+#include "rdp/core.h"
 
 #if 0
 static const char* sp_regs_name[SP_REGS_COUNT] =
@@ -126,7 +124,7 @@ void do_SP_Task(void)
         }
 
         // unprotecting old frame buffers
-        unprotect_framebuffers();
+        unprotect_framebuffers(&g_dp);
 
         //gfx.processDList();
         g_sp.regs2[SP_PC_REG] &= 0xfff;
@@ -145,7 +143,7 @@ void do_SP_Task(void)
         g_sp.regs[SP_STATUS_REG] &= ~0x303;
 
         // protecting new frame buffers
-        protect_framebuffers();
+        protect_framebuffers(&g_dp);
     }
     else if (g_sp.mem[0xfc0/4] == 2)
     {

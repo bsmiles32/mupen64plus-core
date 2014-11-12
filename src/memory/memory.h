@@ -91,6 +91,28 @@ extern void (*writememd[0x10000])(void);
 
 #endif
 
+void map_region_r(uint16_t region,
+        void (*readb)(void),
+        void (*readh)(void),
+        void (*readw)(void),
+        void (*readd)(void));
+
+void map_region_w(uint16_t region,
+        void (*writeb)(void),
+        void (*writeh)(void),
+        void (*writew)(void),
+        void (*writed)(void));
+
+void map_region(uint16_t region,
+        void (*readb)(void),
+        void (*readh)(void),
+        void (*readw)(void),
+        void (*readd)(void),
+        void (*writeb)(void),
+        void (*writeh)(void),
+        void (*writew)(void),
+        void (*writed)(void));
+
 void read_nothing(void);
 void read_nothingh(void);
 void read_nothingb(void);

@@ -22,8 +22,10 @@
 #ifndef M64P_RDP_CORE_H
 #define M64P_RDP_CORE_H
 
+#include "stddef.h"
 #include "stdint.h"
 
+#include "api/m64p_plugin.h"
 
 /**
  * Registers definition
@@ -50,12 +52,17 @@ enum dps_registers
     DPS_REGS_COUNT
 };
 
+enum { FB_INFO_COUNT = 6 };
 
 
 struct rdp_core
 {
     uint32_t dpc_regs[DPC_REGS_COUNT];
     uint32_t dps_regs[DPS_REGS_COUNT];
+
+    FrameBufferInfo fb_infos[FB_INFO_COUNT];
+    char fb_read_dirty[0x800000 >> 12];
+    int fb_first_protection;
 };
 
 
@@ -72,6 +79,12 @@ int read_dps_regs(struct rdp_core* dp,
                   uint32_t address, uint32_t* value);
 int write_dps_regs(struct rdp_core* dp,
                    uint32_t address, uint32_t value, uint32_t mask);
+
+void pre_framebuffer_read(struct rdp_core* dp, uint32_t address);
+void pre_framebuffer_write(struct rdp_core* dp, uint32_t address, size_t size);
+
+void protect_framebuffers(struct rdp_core* dp);
+void unprotect_framebuffers(struct rdp_core* dp);
 
 #endif
 

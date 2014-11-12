@@ -29,11 +29,6 @@
 
 #include "r4300/r4300.h"
 #include "r4300/cached_interp.h"
-#include "r4300/cp0.h"
-#include "r4300/interupt.h"
-#include "r4300/mi.h"
-#include "r4300/recomph.h"
-#include "r4300/ops.h"
 #include "r4300/tlb.h"
 
 #include "rdram/controller.h"
@@ -45,14 +40,7 @@
 #include "api/callbacks.h"
 #include "main/rom.h"
 #include "osal/preproc.h"
-#include "plugin/plugin.h"
 #include "r4300/new_dynarec/new_dynarec.h"
-
-#ifdef DBG
-#include "debugger/dbg_types.h"
-#include "debugger/dbg_memory.h"
-#include "debugger/dbg_breakpoints.h"
-#endif
 
 /* definitions of the rcp's structures and memory area */
 ALIGN(16, struct rdram_controller g_rdram);
@@ -97,11 +85,6 @@ void (*writemem[0x10000])(void);
 void (*writememb[0x10000])(void);
 void (*writememd[0x10000])(void);
 void (*writememh[0x10000])(void);
-
-// the frameBufferInfos
-static FrameBufferInfo frameBufferInfos[6];
-static char framebufferRead[0x800];
-static int firstFrameBufferSetting;
 
 // uncomment to output count of calls to write_rdram():
 //#define COUNT_WRITE_RDRAM_CALLS 1
@@ -342,210 +325,12 @@ int init_memory(void)
     flashram_info.use_flashram = 0;
     init_flashram();
 
-    frameBufferInfos[0].addr = 0;
-    fast_memory = 1;
-    firstFrameBufferSetting = 1;
-
     DebugMessage(M64MSG_VERBOSE, "Memory initialized");
     return 0;
 }
 
 void free_memory(void)
 {
-}
-
-void unprotect_framebuffers(void)
-{
-    if (gfx.fBGetFrameBufferInfo && gfx.fBRead && gfx.fBWrite &&
-            frameBufferInfos[0].addr)
-    {
-        int i;
-        for (i=0; i<6; i++)
-        {
-            if (frameBufferInfos[i].addr)
-            {
-                int j;
-                int start = frameBufferInfos[i].addr & 0x7FFFFF;
-                int end = start + frameBufferInfos[i].width*
-                          frameBufferInfos[i].height*
-                          frameBufferInfos[i].size - 1;
-                start = start >> 16;
-                end = end >> 16;
-
-                for (j=start; j<=end; j++)
-                {
-#ifdef DBG
-                    if (lookup_breakpoint(0x80000000 + j * 0x10000, 0x10000,
-                                          M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_READ) != -1)
-                    {
-                        map_region_r(0x8000+j,
-                                read_rdramb_break,
-                                read_rdramh_break,
-                                read_rdram_break,
-                                read_rdramd_break);
-                    }
-                    else
-                    {
-#endif
-                        map_region_r(0x8000+j, R(rdram));
-#ifdef DBG
-                    }
-                    if (lookup_breakpoint(0xa0000000 + j * 0x10000, 0x10000,
-                                          M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_READ) != -1)
-                    {
-                        map_region_r(0xa000+j,
-                                read_rdramb_break,
-                                read_rdramh_break,
-                                read_rdram_break,
-                                read_rdramd_break);
-                    }
-                    else
-                    {
-#endif
-                        map_region_r(0xa000+j, R(rdram));
-#ifdef DBG
-                    }
-                    if (lookup_breakpoint(0x80000000 + j * 0x10000, 0x10000,
-                                          M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_WRITE) != -1)
-                    {
-                        map_region_w(0x8000+j,
-                                write_rdramb_break,
-                                write_rdramh_break,
-                                write_rdram_break,
-                                write_rdramd_break);
-                    }
-                    else
-                    {
-#endif
-                        map_region_w(0x8000+j, W(rdram));
-#ifdef DBG
-                    }
-                    if (lookup_breakpoint(0xa0000000 + j * 0x10000, 0x10000,
-                                          M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_WRITE) != -1)
-                    {
-                        map_region_w(0xa000+j,
-                                write_rdramb_break,
-                                write_rdramh_break,
-                                write_rdram_break,
-                                write_rdramd_break);
-                    }
-                    else
-                    {
-#endif
-                        map_region_w(0xa000+j, W(rdram));
-#ifdef DBG
-                    }
-#endif
-                }
-            }
-        }
-    }
-}
-
-void protect_framebuffers(void)
-{
-    if (gfx.fBGetFrameBufferInfo && gfx.fBRead && gfx.fBWrite)
-        gfx.fBGetFrameBufferInfo(frameBufferInfos);
-    if (gfx.fBGetFrameBufferInfo && gfx.fBRead && gfx.fBWrite
-            && frameBufferInfos[0].addr)
-    {
-        int i;
-        for (i=0; i<6; i++)
-        {
-            if (frameBufferInfos[i].addr)
-            {
-                int j;
-                int start = frameBufferInfos[i].addr & 0x7FFFFF;
-                int end = start + frameBufferInfos[i].width*
-                          frameBufferInfos[i].height*
-                          frameBufferInfos[i].size - 1;
-                int start1 = start;
-                int end1 = end;
-                start >>= 16;
-                end >>= 16;
-                for (j=start; j<=end; j++)
-                {
-#ifdef DBG
-                    if (lookup_breakpoint(0x80000000 + j * 0x10000, 0x10000,
-                                          M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_READ) != -1)
-                    {
-                        map_region_r(0x8000+j,
-                                read_rdramFBb_break,
-                                read_rdramFBh_break,
-                                read_rdramFB_break,
-                                read_rdramFBd_break);
-                    }
-                    else
-                    {
-#endif
-                        map_region_r(0x8000+j, R(rdramFB));
-#ifdef DBG
-                    }
-                    if (lookup_breakpoint(0xa0000000 + j * 0x10000, 0x10000,
-                                          M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_READ) != -1)
-                    {
-                        map_region_r(0xa000+j,
-                                read_rdramFBb_break,
-                                read_rdramFBh_break,
-                                read_rdramFB_break,
-                                read_rdramFBd_break);
-                    }
-                    else
-                    {
-#endif
-                        map_region_r(0xa000+j, R(rdramFB));
-#ifdef DBG
-                    }
-                    if (lookup_breakpoint(0x80000000 + j * 0x10000, 0x10000,
-                                          M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_WRITE) != -1)
-                    {
-                        map_region_w(0x8000+j,
-                                write_rdramFBb_break,
-                                write_rdramFBh_break,
-                                write_rdramFB_break,
-                                write_rdramFBd_break);
-                    }
-                    else
-                    {
-#endif
-                        map_region_w(0x8000+j, W(rdramFB));
-#ifdef DBG
-                    }
-                    if (lookup_breakpoint(0xa0000000 + j * 0x10000, 0x10000,
-                                          M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_WRITE) != -1)
-                    {
-                        map_region_w(0xa000+j,
-                                write_rdramFBb_break,
-                                write_rdramFBh_break,
-                                write_rdramFB_break,
-                                write_rdramFBd_break);
-                    }
-                    else
-                    {
-#endif
-                        map_region_w(0xa000+j, W(rdramFB));
-#ifdef DBG
-                    }
-#endif
-                }
-                start <<= 4;
-                end <<= 4;
-                for (j=start; j<=end; j++)
-                {
-                    if (j>=start1 && j<=end1) framebufferRead[j]=1;
-                    else framebufferRead[j] = 0;
-                }
-
-                if (firstFrameBufferSetting)
-                {
-                    firstFrameBufferSetting = 0;
-                    fast_memory = 0;
-                    for (j=0; j<0x100000; j++)
-                        invalid_code[j] = 1;
-                }
-            }
-        }
-    }
 }
 
 void read_nothing(void)
@@ -695,89 +480,25 @@ void read_rdramd(void)
 
 void read_rdramFB(void)
 {
-    int i;
-    for (i=0; i<6; i++)
-    {
-        if (frameBufferInfos[i].addr)
-        {
-            unsigned int start = frameBufferInfos[i].addr & 0x7FFFFF;
-            unsigned int end = start + frameBufferInfos[i].width*
-                               frameBufferInfos[i].height*
-                               frameBufferInfos[i].size - 1;
-            if ((address & 0x7FFFFF) >= start && (address & 0x7FFFFF) <= end &&
-                    framebufferRead[(address & 0x7FFFFF)>>12])
-            {
-                gfx.fBRead(address);
-                framebufferRead[(address & 0x7FFFFF)>>12] = 0;
-            }
-        }
-    }
+    pre_framebuffer_read(&g_dp, address);
     read_rdram();
 }
 
 void read_rdramFBb(void)
 {
-    int i;
-    for (i=0; i<6; i++)
-    {
-        if (frameBufferInfos[i].addr)
-        {
-            unsigned int start = frameBufferInfos[i].addr & 0x7FFFFF;
-            unsigned int end = start + frameBufferInfos[i].width*
-                               frameBufferInfos[i].height*
-                               frameBufferInfos[i].size - 1;
-            if ((address & 0x7FFFFF) >= start && (address & 0x7FFFFF) <= end &&
-                    framebufferRead[(address & 0x7FFFFF)>>12])
-            {
-                gfx.fBRead(address);
-                framebufferRead[(address & 0x7FFFFF)>>12] = 0;
-            }
-        }
-    }
+    pre_framebuffer_read(&g_dp, address);
     read_rdramb();
 }
 
 void read_rdramFBh(void)
 {
-    int i;
-    for (i=0; i<6; i++)
-    {
-        if (frameBufferInfos[i].addr)
-        {
-            unsigned int start = frameBufferInfos[i].addr & 0x7FFFFF;
-            unsigned int end = start + frameBufferInfos[i].width*
-                               frameBufferInfos[i].height*
-                               frameBufferInfos[i].size - 1;
-            if ((address & 0x7FFFFF) >= start && (address & 0x7FFFFF) <= end &&
-                    framebufferRead[(address & 0x7FFFFF)>>12])
-            {
-                gfx.fBRead(address);
-                framebufferRead[(address & 0x7FFFFF)>>12] = 0;
-            }
-        }
-    }
+    pre_framebuffer_read(&g_dp, address);
     read_rdramh();
 }
 
 void read_rdramFBd(void)
 {
-    int i;
-    for (i=0; i<6; i++)
-    {
-        if (frameBufferInfos[i].addr)
-        {
-            unsigned int start = frameBufferInfos[i].addr & 0x7FFFFF;
-            unsigned int end = start + frameBufferInfos[i].width*
-                               frameBufferInfos[i].height*
-                               frameBufferInfos[i].size - 1;
-            if ((address & 0x7FFFFF) >= start && (address & 0x7FFFFF) <= end &&
-                    framebufferRead[(address & 0x7FFFFF)>>12])
-            {
-                gfx.fBRead(address);
-                framebufferRead[(address & 0x7FFFFF)>>12] = 0;
-            }
-        }
-    }
+    pre_framebuffer_read(&g_dp, address);
     read_rdramd();
 }
 
@@ -816,73 +537,25 @@ void write_rdramd(void)
 
 void write_rdramFB(void)
 {
-    int i;
-    for (i=0; i<6; i++)
-    {
-        if (frameBufferInfos[i].addr)
-        {
-            unsigned int start = frameBufferInfos[i].addr & 0x7FFFFF;
-            unsigned int end = start + frameBufferInfos[i].width*
-                               frameBufferInfos[i].height*
-                               frameBufferInfos[i].size - 1;
-            if ((address & 0x7FFFFF) >= start && (address & 0x7FFFFF) <= end)
-                gfx.fBWrite(address, 4);
-        }
-    }
+    pre_framebuffer_write(&g_dp, address, 4);
     write_rdram();
 }
 
 void write_rdramFBb(void)
 {
-    int i;
-    for (i=0; i<6; i++)
-    {
-        if (frameBufferInfos[i].addr)
-        {
-            unsigned int start = frameBufferInfos[i].addr & 0x7FFFFF;
-            unsigned int end = start + frameBufferInfos[i].width*
-                               frameBufferInfos[i].height*
-                               frameBufferInfos[i].size - 1;
-            if ((address & 0x7FFFFF) >= start && (address & 0x7FFFFF) <= end)
-                gfx.fBWrite(address^S8, 1);
-        }
-    }
+    pre_framebuffer_write(&g_dp, address^S8, 1);
     write_rdramb();
 }
 
 void write_rdramFBh(void)
 {
-    int i;
-    for (i=0; i<6; i++)
-    {
-        if (frameBufferInfos[i].addr)
-        {
-            unsigned int start = frameBufferInfos[i].addr & 0x7FFFFF;
-            unsigned int end = start + frameBufferInfos[i].width*
-                               frameBufferInfos[i].height*
-                               frameBufferInfos[i].size - 1;
-            if ((address & 0x7FFFFF) >= start && (address & 0x7FFFFF) <= end)
-                gfx.fBWrite(address^S16, 2);
-        }
-    }
+    pre_framebuffer_write(&g_dp, address^S16, 2);
     write_rdramh();
 }
 
 void write_rdramFBd(void)
 {
-    int i;
-    for (i=0; i<6; i++)
-    {
-        if (frameBufferInfos[i].addr)
-        {
-            unsigned int start = frameBufferInfos[i].addr & 0x7FFFFF;
-            unsigned int end = start + frameBufferInfos[i].width*
-                               frameBufferInfos[i].height*
-                               frameBufferInfos[i].size - 1;
-            if ((address & 0x7FFFFF) >= start && (address & 0x7FFFFF) <= end)
-                gfx.fBWrite(address, 8);
-        }
-    }
+    pre_framebuffer_write(&g_dp, address, 8);
     write_rdramd();
 }
 
