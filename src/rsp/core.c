@@ -56,22 +56,22 @@ static const char* sp_regs2_name[SP_REGS2_COUNT] =
 #endif
 
 
-static void dma_sp_write(void)
+static void dma_sp_write(struct rsp_core* sp)
 {
     unsigned int i,j;
 
-    unsigned int l = g_sp.regs[SP_RD_LEN_REG];
+    unsigned int l = sp->regs[SP_RD_LEN_REG];
 
     unsigned int length = ((l & 0xfff) | 7) + 1;
     unsigned int count = ((l >> 12) & 0xff) + 1;
     unsigned int skip = ((l >> 20) & 0xfff);
  
-    unsigned int memaddr = g_sp.regs[SP_MEM_ADDR_REG] & 0xfff;
-    unsigned int dramaddr = g_sp.regs[SP_DRAM_ADDR_REG] & 0xffffff;
+    unsigned int memaddr = sp->regs[SP_MEM_ADDR_REG] & 0xfff;
+    unsigned int dramaddr = sp->regs[SP_DRAM_ADDR_REG] & 0xffffff;
 
-    unsigned char *spmem = ((unsigned char*)g_sp.mem)
-                         + (g_sp.regs[SP_MEM_ADDR_REG] & 0x1000);
-    unsigned char *dram = (unsigned char*)g_rdram.ram;
+    unsigned char *spmem = ((unsigned char*)sp->mem)
+                         + (sp->regs[SP_MEM_ADDR_REG] & 0x1000);
+    unsigned char *dram = (unsigned char*)sp->rdram->ram;
 
     for(j=0; j<count; j++) {
         for(i=0; i<length; i++) {
@@ -83,22 +83,22 @@ static void dma_sp_write(void)
     }
 }
 
-static void dma_sp_read(void)
+static void dma_sp_read(struct rsp_core* sp)
 {
     unsigned int i,j;
 
-    unsigned int l = g_sp.regs[SP_WR_LEN_REG];
+    unsigned int l = sp->regs[SP_WR_LEN_REG];
 
     unsigned int length = ((l & 0xfff) | 7) + 1;
     unsigned int count = ((l >> 12) & 0xff) + 1;
     unsigned int skip = ((l >> 20) & 0xfff);
 
-    unsigned int memaddr = g_sp.regs[SP_MEM_ADDR_REG] & 0xfff;
-    unsigned int dramaddr = g_sp.regs[SP_DRAM_ADDR_REG] & 0xffffff;
+    unsigned int memaddr = sp->regs[SP_MEM_ADDR_REG] & 0xfff;
+    unsigned int dramaddr = sp->regs[SP_DRAM_ADDR_REG] & 0xffffff;
 
-    unsigned char *spmem = ((unsigned char*)g_sp.mem)
-                         + (g_sp.regs[SP_MEM_ADDR_REG] & 0x1000);
-    unsigned char *dram = (unsigned char*)g_rdram.ram;
+    unsigned char *spmem = ((unsigned char*)sp->mem)
+                         + (sp->regs[SP_MEM_ADDR_REG] & 0x1000);
+    unsigned char *dram = (unsigned char*)sp->rdram->ram;
 
     for(j=0; j<count; j++) {
         for(i=0; i<length; i++) {
@@ -111,12 +111,12 @@ static void dma_sp_read(void)
 }
 
 
-void do_SP_Task(void)
+void do_SP_Task(struct rsp_core* sp)
 {
-    int save_pc = g_sp.regs2[SP_PC_REG] & ~0xfff;
-    if (g_sp.mem[0xfc0/4] == 1)
+    int save_pc = sp->regs2[SP_PC_REG] & ~0xfff;
+    if (sp->mem[0xfc0/4] == 1)
     {
-        if (g_dp.dpc_regs[DPC_STATUS_REG] & 0x2) // DP frozen (DK64, BC)
+        if (sp->dp->dpc_regs[DPC_STATUS_REG] & 0x2) // DP frozen (DK64, BC)
         {
             // don't do the task now
             // the task will be done when DP is unfreezed (see write_dpc_regs)
@@ -124,53 +124,53 @@ void do_SP_Task(void)
         }
 
         // unprotecting old frame buffers
-        unprotect_framebuffers(&g_dp);
+        unprotect_framebuffers(sp->dp);
 
         //gfx.processDList();
-        g_sp.regs2[SP_PC_REG] &= 0xfff;
+        sp->regs2[SP_PC_REG] &= 0xfff;
         timed_section_start(TIMED_SECTION_GFX);
         rsp.doRspCycles(0xFFFFFFFF);
         timed_section_end(TIMED_SECTION_GFX);
-        g_sp.regs2[SP_PC_REG] |= save_pc;
+        sp->regs2[SP_PC_REG] |= save_pc;
         new_frame();
 
         update_count();
-        if (g_mi.regs[MI_INTR_REG] & MI_INTR_SP)
+        if (sp->mi->regs[MI_INTR_REG] & MI_INTR_SP)
             add_interupt_event(SP_INT, 1000);
-        if (g_mi.regs[MI_INTR_REG] & MI_INTR_DP)
+        if (sp->mi->regs[MI_INTR_REG] & MI_INTR_DP)
             add_interupt_event(DP_INT, 1000);
-        g_mi.regs[MI_INTR_REG] &= ~(MI_INTR_SP | MI_INTR_DP);
-        g_sp.regs[SP_STATUS_REG] &= ~0x303;
+        sp->mi->regs[MI_INTR_REG] &= ~(MI_INTR_SP | MI_INTR_DP);
+        sp->regs[SP_STATUS_REG] &= ~0x303;
 
         // protecting new frame buffers
-        protect_framebuffers(&g_dp);
+        protect_framebuffers(sp->dp);
     }
-    else if (g_sp.mem[0xfc0/4] == 2)
+    else if (sp->mem[0xfc0/4] == 2)
     {
         //audio.processAList();
-        g_sp.regs2[SP_PC_REG] &= 0xfff;
+        sp->regs2[SP_PC_REG] &= 0xfff;
         timed_section_start(TIMED_SECTION_AUDIO);
         rsp.doRspCycles(0xFFFFFFFF);
         timed_section_end(TIMED_SECTION_AUDIO);
-        g_sp.regs2[SP_PC_REG] |= save_pc;
+        sp->regs2[SP_PC_REG] |= save_pc;
 
         update_count();
-        if (g_mi.regs[MI_INTR_REG] & MI_INTR_SP)
+        if (sp->mi->regs[MI_INTR_REG] & MI_INTR_SP)
             add_interupt_event(SP_INT, 4000/*500*/);
-        g_mi.regs[MI_INTR_REG] &= ~MI_INTR_SP;
-        g_sp.regs[SP_STATUS_REG] &= ~0x303;
+        sp->mi->regs[MI_INTR_REG] &= ~MI_INTR_SP;
+        sp->regs[SP_STATUS_REG] &= ~0x303;
     }
     else
     {
-        g_sp.regs2[SP_PC_REG] &= 0xfff;
+        sp->regs2[SP_PC_REG] &= 0xfff;
         rsp.doRspCycles(0xFFFFFFFF);
-        g_sp.regs2[SP_PC_REG] |= save_pc;
+        sp->regs2[SP_PC_REG] |= save_pc;
 
         update_count();
-        if (g_mi.regs[MI_INTR_REG] & MI_INTR_SP)
+        if (sp->mi->regs[MI_INTR_REG] & MI_INTR_SP)
             add_interupt_event(SP_INT, 0/*100*/);
-        g_mi.regs[MI_INTR_REG] &= ~MI_INTR_SP;
-        g_sp.regs[SP_STATUS_REG] &= ~0x203;
+        sp->mi->regs[MI_INTR_REG] &= ~MI_INTR_SP;
+        sp->regs[SP_STATUS_REG] &= ~0x203;
     }
 }
 
@@ -179,11 +179,18 @@ void do_SP_Task(void)
 
 
 
-int init_rsp(struct rsp_core* sp)
+int init_rsp(struct rsp_core* sp,
+             struct rdp_core* dp,
+             struct mi_controller* mi,
+             struct rdram_controller* rdram)
 {
     memset(sp, 0, sizeof(*sp));
     
     sp->regs[SP_STATUS_REG] = 1;
+
+    sp->dp = dp;
+    sp->mi = mi;
+    sp->rdram = rdram;
 
     return 0;
 }
@@ -254,12 +261,12 @@ int write_rsp_regs(struct rsp_core* sp,
 
     case SP_RD_LEN_REG:
         masked_write(&sp->regs[reg], value, mask);
-        dma_sp_write();
+        dma_sp_write(sp);
         break;
 
     case SP_WR_LEN_REG:
         masked_write(&sp->regs[reg], value, mask);
-        dma_sp_read();
+        dma_sp_read(sp);
         break;
 
     case SP_STATUS_REG:
@@ -272,13 +279,13 @@ int write_rsp_regs(struct rsp_core* sp,
         /* clear SP interrupt */
         if (v & 0x8)
         {
-            g_mi.regs[MI_INTR_REG] &= ~MI_INTR_SP;
+            sp->mi->regs[MI_INTR_REG] &= ~MI_INTR_SP;
             check_interupt();
         }
         /* set SP interrupt */
         if (v & 0x10)
         {
-            g_mi.regs[MI_INTR_REG] |= MI_INTR_SP;
+            sp->mi->regs[MI_INTR_REG] |= MI_INTR_SP;
             check_interupt();
         }
         /* clear / set single step */
@@ -314,7 +321,7 @@ int write_rsp_regs(struct rsp_core* sp,
 
         /* execute rsp task if needed */
         if (((v & 0x5) != 0) && ((sp->regs[SP_STATUS_REG] & 0x3) == 0))
-            do_SP_Task();
+            do_SP_Task(sp);
         break;
 
     case SP_DMA_FULL_REG:

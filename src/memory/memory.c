@@ -281,7 +281,7 @@ int init_memory(void)
     }
 
     init_rdram(&g_rdram);
-    init_rsp(&g_sp);
+    init_rsp(&g_sp, &g_dp, &g_mi, &g_rdram);
     init_rdp(&g_dp, &g_mi, &g_sp);
     init_mi(&g_mi);
     init_vi(&g_vi, &g_mi);

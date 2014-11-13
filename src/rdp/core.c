@@ -40,8 +40,6 @@
 #include "debugger/dbg_breakpoints.h"
 #endif
 
-void do_SP_Task(void);
-
 #if 0
 static const char* dpc_regs_name[DPC_REGS_COUNT] =
 {
@@ -129,7 +127,7 @@ int write_dpc_regs(struct rdp_core* dp,
 
             /* see do_SP_task for more info */
             if ((dp->sp->regs[SP_STATUS_REG] & 0x3) == 0) // !halt && !broke
-                do_SP_Task();
+                do_SP_Task(dp->sp);
         }
         /* set freeze */
         if (v & 0x8) dp->dpc_regs[DPC_STATUS_REG] |= 0x2;

@@ -24,6 +24,9 @@
 
 #include "stdint.h"
 
+struct rdp_core;
+struct mi_controller;
+struct rdram_controller;
 
 /**
  * Registers definition
@@ -56,12 +59,18 @@ struct rsp_core
     uint32_t regs[SP_REGS_COUNT];
     uint32_t regs2[SP_REGS2_COUNT];
     uint32_t mem[SP_MEM_SIZE/4];
+
+    struct rdp_core* dp;
+    struct mi_controller* mi;
+    struct rdram_controller* rdram;
 };
 
 
 
-int init_rsp(struct rsp_core* sp);
-
+int init_rsp(struct rsp_core* sp,
+             struct rdp_core* dp,
+             struct mi_controller* mi,
+             struct rdram_controller* rdram);
 
 int read_rsp_mem(struct rsp_core* sp,
                  uint32_t address, uint32_t* value);
@@ -77,6 +86,8 @@ int read_rsp_regs2(struct rsp_core* sp,
                  uint32_t address, uint32_t* value);
 int write_rsp_regs2(struct rsp_core* sp,
                   uint32_t address, uint32_t value, uint32_t mask);
+
+void do_SP_Task(struct rsp_core* sp);
 
 #endif
 
