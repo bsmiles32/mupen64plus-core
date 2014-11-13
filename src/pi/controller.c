@@ -21,10 +21,10 @@
 
 #include "controller.h"
 
-#include <stdlib.h>
 #include <string.h>
 
 #include "flashram.h"
+#include "sram.h"
 
 #define M64P_CORE_PROTOTYPES 1
 #include "api/m64p_types.h"
@@ -41,7 +41,6 @@
 
 #include "main/main.h"
 #include "main/rom.h"
-#include "main/util.h"
 
 #if 0
 static const char* pi_regs_name[PI_REGS_COUNT] =
@@ -62,77 +61,16 @@ static const char* pi_regs_name[PI_REGS_COUNT] =
 };
 #endif
 
-static unsigned char sram[0x8000];
-
-static char *get_sram_path(void)
-{
-    return formatstr("%s%s.sra", get_savesrampath(), ROM_SETTINGS.goodname);
-}
-
-static void sram_format(void)
-{
-    memset(sram, 0, sizeof(sram));
-}
-
-static void sram_read_file(void)
-{
-    char *filename = get_sram_path();
-
-    sram_format();
-    switch (read_from_file(filename, sram, sizeof(sram)))
-    {
-        case file_open_error:
-            DebugMessage(M64MSG_VERBOSE, "couldn't open sram file '%s' for reading", filename);
-            sram_format();
-            break;
-        case file_read_error:
-            DebugMessage(M64MSG_WARNING, "fread() failed on 32kb read from sram file '%s'", filename);
-            sram_format();
-            break;
-        default: break;
-    }
-
-    free(filename);
-}
-
-static void sram_write_file(void)
-{
-    char *filename = get_sram_path();
-
-    switch (write_to_file(filename, sram, sizeof(sram)))
-    {
-        case file_open_error:
-            DebugMessage(M64MSG_WARNING, "couldn't open sram file '%s' for writing.", filename);
-            break;
-        case file_write_error:
-            DebugMessage(M64MSG_WARNING, "fwrite() failed on 32kb write to sram file '%s'", filename);
-            break;
-        default: break;
-    }
-
-    free(filename);
-}
-
 static void dma_pi_read(void)
 {
-    unsigned int i;
-
     if (g_pi.regs[PI_CART_ADDR_REG] >= 0x08000000
             && g_pi.regs[PI_CART_ADDR_REG] < 0x08010000)
     {
         if (flashram_info.use_flashram != 1)
         {
-            sram_read_file();
-
-            for (i=0; i < (g_pi.regs[PI_RD_LEN_REG] & 0xFFFFFF)+1; i++)
-            {
-                sram[((g_pi.regs[PI_CART_ADDR_REG]-0x08000000)+i)^S8] =
-                    ((unsigned char*)g_rdram.ram)[(g_pi.regs[PI_DRAM_ADDR_REG]+i)^S8];
-            }
-
-            sram_write_file();
-
             flashram_info.use_flashram = -1;
+
+            dma_write_sram(&g_pi, (uint8_t*)g_rdram.ram);
         }
         else
         {
@@ -161,15 +99,7 @@ static void dma_pi_write(void)
         {
             if (flashram_info.use_flashram != 1)
             {
-                int i;
-
-                sram_read_file();
-
-                for (i=0; i<(int)(g_pi.regs[PI_WR_LEN_REG] & 0xFFFFFF)+1; i++)
-                {
-                    ((unsigned char*)g_rdram.ram)[(g_pi.regs[PI_DRAM_ADDR_REG]+i)^S8]=
-                        sram[(((g_pi.regs[PI_CART_ADDR_REG]-0x08000000)&0xFFFF)+i)^S8];
-                }
+                dma_read_sram(&g_pi, (uint8_t*)g_rdram.ram);
 
                 flashram_info.use_flashram = -1;
             }

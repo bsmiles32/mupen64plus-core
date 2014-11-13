@@ -1,5 +1,5 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- *   Mupen64plus - controller.h                                            *
+ *   Mupen64plus - sram.h                                                  *
  *   Mupen64Plus homepage: http://code.google.com/p/mupen64plus/           *
  *   Copyright (C) 2014 Bobby Smiles                                       *
  *                                                                         *
@@ -19,63 +19,17 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.          *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#ifndef M64P_PI_CONTROLLER_H
-#define M64P_PI_CONTROLLER_H
+#ifndef M64P_PI_SRAM_H
+#define M64P_PI_SRAM_H
 
-#include <stddef.h>
 #include <stdint.h>
 
-#include "sram.h"
+struct pi_controller;
 
-/**
- * Parallel Interface registers 
- **/
-enum pi_registers
-{
-    PI_DRAM_ADDR_REG,
-    PI_CART_ADDR_REG,
-    PI_RD_LEN_REG,
-    PI_WR_LEN_REG,
-    PI_STATUS_REG,
-    PI_BSD_DOM1_LAT_REG,
-    PI_BSD_DOM1_PWD_REG,
-    PI_BSD_DOM1_PGS_REG,
-    PI_BSD_DOM1_RLS_REG,
-    PI_BSD_DOM2_LAT_REG,
-    PI_BSD_DOM2_PWD_REG,
-    PI_BSD_DOM2_PGS_REG,
-    PI_BSD_DOM2_RLS_REG,
-    PI_REGS_COUNT
-};
+enum { SRAM_SIZE = 0x8000 };
 
-/**
- * Controller
- **/
-struct pi_controller
-{
-    uint32_t regs[PI_REGS_COUNT];
+void dma_read_sram(struct pi_controller* pi, uint8_t* ram);
+void dma_write_sram(struct pi_controller* pi, uint8_t* ram);
 
-    uint8_t* cart_rom;
-    size_t cart_rom_size;
-    uint32_t cart_last_write;
-
-    uint8_t sram[SRAM_SIZE];
-};
-
-
-
-int init_pi(struct pi_controller* pi, uint8_t* cart_rom, size_t cart_rom_size);
-
-
-int read_pi_regs(struct pi_controller* pi,
-                 uint32_t address, uint32_t* value);
-int write_pi_regs(struct pi_controller* pi,
-                  uint32_t address, uint32_t value, uint32_t mask);
-
-int read_cart_rom(struct pi_controller* pi,
-                  uint32_t address, uint32_t* value);
-
-int write_cart_rom(struct pi_controller* pi,
-                   uint32_t address, uint32_t value, uint32_t mask);
 #endif
 

@@ -391,6 +391,7 @@ SOURCE = \
 	$(SRCDIR)/memory/memory.c \
 	$(SRCDIR)/pi/controller.c \
 	$(SRCDIR)/pi/flashram.c \
+	$(SRCDIR)/pi/sram.c \
 	$(SRCDIR)/plugin/plugin.c \
 	$(SRCDIR)/plugin/dummy_video.c \
 	$(SRCDIR)/plugin/dummy_audio.c \
