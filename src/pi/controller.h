@@ -28,6 +28,8 @@
 #include "sram.h"
 #include "flashram.h"
 
+struct rdram_controller;
+
 /**
  * Parallel Interface registers 
  **/
@@ -56,6 +58,8 @@ struct pi_controller
 {
     uint32_t regs[PI_REGS_COUNT];
 
+    struct rdram_controller* rdram;
+
     uint8_t* cart_rom;
     size_t cart_rom_size;
     uint32_t cart_last_write;
@@ -67,7 +71,9 @@ struct pi_controller
 
 
 
-int init_pi(struct pi_controller* pi, uint8_t* cart_rom, size_t cart_rom_size);
+int init_pi(struct pi_controller* pi,
+            struct rdram_controller* rdram,
+            uint8_t* cart_rom, size_t cart_rom_size);
 
 
 int read_pi_regs(struct pi_controller* pi,

@@ -191,7 +191,7 @@ int pi_write_flashram_command(struct pi_controller* pi,
     if (flashram->use_flashram != -1 && (address & 0xffff) == 0)
     {
         // FIXME
-        flashram_command(flashram, (uint8_t*)g_rdram.ram, value & mask);
+        flashram_command(flashram, (uint8_t*)pi->rdram->ram, value & mask);
         flashram->use_flashram = 1;
     }
     else
@@ -204,10 +204,11 @@ int pi_write_flashram_command(struct pi_controller* pi,
 }
 
 
-void dma_read_flashram(struct pi_controller* pi, uint32_t* ram)
+void dma_read_flashram(struct pi_controller* pi)
 {
     unsigned int i;
     struct flashram_controller* flashram = &pi->flashram;
+    uint32_t* ram = pi->rdram->ram;
 
     switch (flashram->mode)
     {
@@ -219,7 +220,7 @@ void dma_read_flashram(struct pi_controller* pi, uint32_t* ram)
         flashram_read_file(flashram);
         for (i=0; i<(pi->regs[PI_WR_LEN_REG] & 0x0FFFFFF)+1; i++)
         {
-            ((unsigned char*)ram)[(pi->regs[PI_DRAM_ADDR_REG]+i)^S8]=
+            ((uint8_t*)ram)[(pi->regs[PI_DRAM_ADDR_REG]+i)^S8]=
                 flashram->flashram[(((pi->regs[PI_CART_ADDR_REG]-0x08000000)&0xFFFF)*2+i)^S8];
         }
         break;

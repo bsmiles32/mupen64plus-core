@@ -28,8 +28,8 @@ struct pi_controller;
 
 enum { SRAM_SIZE = 0x8000 };
 
-void dma_read_sram(struct pi_controller* pi, uint8_t* ram);
-void dma_write_sram(struct pi_controller* pi, uint8_t* ram);
+void dma_read_sram(struct pi_controller* pi);
+void dma_write_sram(struct pi_controller* pi);
 
 #endif
 

@@ -311,7 +311,7 @@ int init_memory(void)
     init_mi(&g_mi);
     init_vi(&g_vi);
     init_ai(&g_ai);
-    init_pi(&g_pi, rom, rom_size);
+    init_pi(&g_pi, &g_rdram, rom, rom_size);
     enum cic_type cic = detect_cic_type(rom + 0x40);
     init_si(&g_si, cic);
 

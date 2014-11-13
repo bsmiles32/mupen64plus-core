@@ -54,7 +54,7 @@ int pi_read_flashram_status(struct pi_controller* pi,
 int pi_write_flashram_command(struct pi_controller* pi,
                               uint32_t address, uint32_t value, uint32_t mask);
 
-void dma_read_flashram(struct pi_controller* pi, uint32_t* ram);
+void dma_read_flashram(struct pi_controller* pi);
 void dma_write_flashram(struct pi_controller* pi);
 
 #endif
