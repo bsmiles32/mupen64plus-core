@@ -24,6 +24,9 @@
 
 #include <stdint.h>
 
+struct rdram_controller;
+struct mi_controller;
+
 /**
  * Serial Interface registers 
  **/
@@ -57,11 +60,16 @@ struct si_controller
 {
     uint32_t regs[SI_REGS_COUNT];
     uint8_t pif_ram[PIF_RAM_SIZE];
+    struct rdram_controller* rdram;
+    struct mi_controller* mi;
     enum cic_type cic;
 };
 
 
-int init_si(struct si_controller* si, enum cic_type cic);
+int init_si(struct si_controller* si,
+            struct rdram_controller* rdram,
+            struct mi_controller* mi,
+            enum cic_type cic);
 
 
 int read_si_regs(struct si_controller* si,

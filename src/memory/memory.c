@@ -313,7 +313,7 @@ int init_memory(void)
     init_ai(&g_ai);
     init_pi(&g_pi, &g_rdram, &g_mi, &g_si, rom, rom_size);
     enum cic_type cic = detect_cic_type(rom + 0x40);
-    init_si(&g_si, cic);
+    init_si(&g_si, &g_rdram, &g_mi, cic);
 
     DebugMessage(M64MSG_VERBOSE, "Memory initialized");
     return 0;

@@ -32,6 +32,7 @@
 #include "r4300/cp0.h"
 #include "r4300/interupt.h"
 #include "r4300/mi.h"
+#include "rdram/controller.h"
 
 #if 0
 static const char* si_regs_name[SI_REGS_COUNT] =
@@ -48,11 +49,11 @@ static const char* si_regs_name[SI_REGS_COUNT] =
 
 int delay_si = 0;
 
-static void dma_si_write(void)
+static void dma_si_write(struct si_controller* si)
 {
     int i;
 
-    if (g_si.regs[SI_PIF_ADDR_WR64B_REG] != 0x1FC007C0)
+    if (si->regs[SI_PIF_ADDR_WR64B_REG] != 0x1FC007C0)
     {
         DebugMessage(M64MSG_ERROR, "dma_si_write(): unknown SI use");
         stop=1;
@@ -60,7 +61,7 @@ static void dma_si_write(void)
 
     for (i = 0; i < PIF_RAM_SIZE; i += 4)
     {
-        *((uint32_t*)(g_si.pif_ram + i)) = sl(g_rdram.ram[(g_si.regs[SI_DRAM_ADDR_REG]+i)/4]);
+        *((uint32_t*)(si->pif_ram + i)) = sl(si->rdram->ram[(si->regs[SI_DRAM_ADDR_REG]+i)/4]);
     }
 
     update_pif_write();
@@ -69,17 +70,17 @@ static void dma_si_write(void)
     if (delay_si) {
         add_interupt_event(SI_INT, /*0x100*/0x900);
     } else {
-        g_mi.regs[MI_INTR_REG] |= MI_INTR_SI;
-        g_si.regs[SI_STATUS_REG] |= 0x1000; // INTERRUPT
+        si->mi->regs[MI_INTR_REG] |= MI_INTR_SI;
+        si->regs[SI_STATUS_REG] |= 0x1000; // INTERRUPT
         check_interupt();
     }
 }
 
-static void dma_si_read(void)
+static void dma_si_read(struct si_controller* si)
 {
     int i;
 
-    if (g_si.regs[SI_PIF_ADDR_RD64B_REG] != 0x1FC007C0)
+    if (si->regs[SI_PIF_ADDR_RD64B_REG] != 0x1FC007C0)
     {
         DebugMessage(M64MSG_ERROR, "dma_si_read(): unknown SI use");
         stop=1;
@@ -89,7 +90,7 @@ static void dma_si_read(void)
 
     for (i = 0; i < PIF_RAM_SIZE; i += 4)
     {
-        g_rdram.ram[(g_si.regs[SI_DRAM_ADDR_REG]+i)/4] = sl(*(uint32_t*)(g_si.pif_ram + i));
+        si->rdram->ram[(si->regs[SI_DRAM_ADDR_REG]+i)/4] = sl(*(uint32_t*)(si->pif_ram + i));
     }
 
     update_count();
@@ -97,17 +98,23 @@ static void dma_si_read(void)
     if (delay_si) {
         add_interupt_event(SI_INT, /*0x100*/0x900);
     } else {
-        g_mi.regs[MI_INTR_REG] |= MI_INTR_SI;
-        g_si.regs[SI_STATUS_REG] |= 0x1000; // INTERRUPT
+        si->mi->regs[MI_INTR_REG] |= MI_INTR_SI;
+        si->regs[SI_STATUS_REG] |= 0x1000; // INTERRUPT
         check_interupt();
     }
 }
 
 
 
-int init_si(struct si_controller* si, enum cic_type cic)
+int init_si(struct si_controller* si,
+            struct rdram_controller* rdram,
+            struct mi_controller* mi,
+            enum cic_type cic)
 {
     memset(si, 0, sizeof(*si));
+
+    si->rdram = rdram;
+    si->mi = mi;
 
     si->cic = cic;
 
@@ -146,15 +153,15 @@ int write_si_regs(struct si_controller* si,
         break;
     case SI_PIF_ADDR_RD64B_REG:
         masked_write(&si->regs[SI_PIF_ADDR_RD64B_REG], value, mask);
-        dma_si_read();
+        dma_si_read(si);
         break;
     case SI_PIF_ADDR_WR64B_REG:
         masked_write(&si->regs[SI_PIF_ADDR_WR64B_REG], value, mask);
-        dma_si_write();
+        dma_si_write(si);
         break;
     case SI_STATUS_REG:
         si->regs[SI_STATUS_REG] &= ~0x1000;
-        g_mi.regs[MI_INTR_REG] &= ~MI_INTR_SI;
+        si->mi->regs[MI_INTR_REG] &= ~MI_INTR_SI;
         check_interupt();
         break;
     default:
