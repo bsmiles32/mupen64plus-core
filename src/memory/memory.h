@@ -22,15 +22,7 @@
 #ifndef MEMORY_H
 #define MEMORY_H
 
-#include "osal/preproc.h"
-#include "ai/controller.h"
-#include "pi/controller.h"
-#include "r4300/mi.h"
-#include "rdp/core.h"
-#include "rsp/core.h"
-#include "rdram/controller.h"
-#include "si/controller.h"
-#include "vi/controller.h"
+#include <stdint.h>
 
 int init_memory(void);
 void free_memory(void);
@@ -42,15 +34,6 @@ void free_memory(void);
 #define write_byte_in_memory() writememb[address >>16]()
 #define write_hword_in_memory() writememh[address >>16]()
 #define write_dword_in_memory() writememd[address >>16]()
-
-extern ALIGN(16, struct rdram_controller g_rdram);
-extern struct ai_controller g_ai;
-extern struct mi_controller g_mi;
-extern struct pi_controller g_pi;
-extern struct si_controller g_si;
-extern struct vi_controller g_vi;
-extern struct rdp_core g_dp;
-extern struct rsp_core g_sp;
 
 extern unsigned int address, word;
 extern unsigned char cpu_byte;

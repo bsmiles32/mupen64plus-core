@@ -35,6 +35,7 @@
 #include "r4300/recomph.h"
 #include "r4300/exception.h"
 
+#include "main/main.h"
 #include "memory/memory.h"
 
 #if defined(COUNT_INSTR)

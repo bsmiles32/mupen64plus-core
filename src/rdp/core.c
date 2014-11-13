@@ -32,6 +32,7 @@
 #include "r4300/interupt.h"
 #include "r4300/mi.h"
 #include "r4300/recomph.h"
+#include "rsp/core.h"
 
 #ifdef DBG
 #include "debugger/dbg_types.h"
@@ -63,12 +64,17 @@ static const char* dps_regs_name[DPS_REGS_COUNT] =
 };
 #endif
 
-int init_rdp(struct rdp_core* dp)
+int init_rdp(struct rdp_core* dp,
+             struct mi_controller* mi,
+             struct rsp_core* sp)
 {
     memset(dp, 0, sizeof(*dp));
 
     fast_memory = 1;
     dp->fb_first_protection = 1;
+
+    dp->mi = mi;
+    dp->sp = sp;
 
     return 0;
 }
@@ -105,7 +111,7 @@ int write_dpc_regs(struct rdp_core* dp,
     case DPC_END_REG:
         masked_write(&dp->dpc_regs[reg], value, mask);
         gfx.processRDPList();
-        g_mi.regs[MI_INTR_REG] |= MI_INTR_DP;
+        dp->mi->regs[MI_INTR_REG] |= MI_INTR_DP;
         check_interupt();
         break;
 
@@ -122,7 +128,7 @@ int write_dpc_regs(struct rdp_core* dp,
             dp->dpc_regs[DPC_STATUS_REG] &= ~0x2;
 
             /* see do_SP_task for more info */
-            if ((g_sp.regs[SP_STATUS_REG] & 0x3) == 0) // !halt && !broke
+            if ((dp->sp->regs[SP_STATUS_REG] & 0x3) == 0) // !halt && !broke
                 do_SP_Task();
         }
         /* set freeze */

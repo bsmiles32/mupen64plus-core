@@ -53,9 +53,12 @@ static const char* vi_regs_name[VI_REGS_COUNT] =
 #endif
 
 
-int init_vi(struct vi_controller* vi)
+int init_vi(struct vi_controller* vi,
+            struct mi_controller* mi)
 {
     memset(vi, 0, sizeof(*vi));
+
+    vi->mi = mi;
 
     return 0;
 }
@@ -113,7 +116,7 @@ int write_vi_regs(struct vi_controller* vi,
         break;
 
     case VI_CURRENT_REG:
-        g_mi.regs[MI_INTR_REG] &= ~MI_INTR_VI;
+        vi->mi->regs[MI_INTR_REG] &= ~MI_INTR_VI;
         check_interupt();
         break;
 

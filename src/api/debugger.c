@@ -31,18 +31,16 @@
 #include "callbacks.h"
 #include "debugger.h"
 
-#include "ai/controller.h"
 #include "debugger/dbg_types.h"
 #include "debugger/dbg_breakpoints.h"
 #include "debugger/dbg_decoder.h"
 #include "debugger/dbg_memory.h"
 #include "debugger/debugger.h"
-#include "memory/memory.h"
+#include "main/main.h"
 #include "r4300/r4300.h"
 #include "r4300/cp0.h"
 #include "r4300/cp1.h"
 #include "r4300/tlb.h"
-#include "si/controller.h"
 
 unsigned int op;
 

@@ -23,33 +23,15 @@
 
 #include "memory.h"
 
-#include "ai/controller.h"
-#include "pi/controller.h"
+#include "main/main.h"
 
 #include "r4300/r4300.h"
 #include "r4300/cached_interp.h"
 #include "r4300/tlb.h"
 
-#include "rdram/controller.h"
-#include "rsp/core.h"
-#include "si/controller.h"
-#include "si/pif.h"
-#include "vi/controller.h"
-
 #include "api/callbacks.h"
 #include "main/rom.h"
-#include "osal/preproc.h"
 #include "r4300/new_dynarec/new_dynarec.h"
-
-/* definitions of the rcp's structures and memory area */
-ALIGN(16, struct rdram_controller g_rdram);
-struct ai_controller g_ai;
-struct mi_controller g_mi;
-struct pi_controller g_pi;
-struct si_controller g_si;
-struct vi_controller g_vi;
-struct rdp_core g_dp;
-struct rsp_core g_sp;
 
 #if NEW_DYNAREC != NEW_DYNAREC_ARM
 // address : address of the read/write operation being done
@@ -300,10 +282,10 @@ int init_memory(void)
 
     init_rdram(&g_rdram);
     init_rsp(&g_sp);
-    init_rdp(&g_dp);
+    init_rdp(&g_dp, &g_mi, &g_sp);
     init_mi(&g_mi);
-    init_vi(&g_vi);
-    init_ai(&g_ai);
+    init_vi(&g_vi, &g_mi);
+    init_ai(&g_ai, &g_mi, &g_vi);
     init_pi(&g_pi, &g_rdram, &g_mi, &g_si, rom, rom_size);
     enum cic_type cic = detect_cic_type(rom + 0x40);
     init_si(&g_si, &g_rdram, &g_mi, cic);
@@ -1491,7 +1473,7 @@ unsigned int *fast_mem_access(unsigned int address)
         address = virtual_to_physical_address(address, 2);
 
     if ((address & 0x1FFFFFFF) >= 0x10000000)
-        return (unsigned int *)rom + ((address & 0x1FFFFFFF) - 0x10000000)/4;
+        return (unsigned int *)g_pi.cart_rom + ((address & 0x1FFFFFFF) - 0x10000000)/4;
     else if ((address & 0x1FFFFFFF) < RDRAM_MAX_SIZE)
         return (unsigned int *)g_rdram.ram + (address & 0x1FFFFFFF)/4;
     else if (address >= 0xa4000000 && address <= 0xa4002000)

@@ -79,6 +79,15 @@ m64p_frame_callback g_FrameCallback = NULL;
 int         g_MemHasBeenBSwapped = 0;   // store byte-swapped flag so we don't swap twice when re-playing game
 int         g_EmulatorRunning = 0;      // need separate boolean to tell if emulator is running, since --nogui doesn't use a thread
 
+ALIGN(16, struct rdram_controller g_rdram);
+struct ai_controller g_ai;
+struct mi_controller g_mi;
+struct pi_controller g_pi;
+struct si_controller g_si;
+struct vi_controller g_vi;
+struct rdp_core g_dp;
+struct rsp_core g_sp;
+
 /** static (local) variables **/
 static int   l_CurrentFrame = 0;         // frame counter
 static int   l_TakeScreenshot = 0;       // Tell OSD Rendering callback to take a screenshot just before drawing the OSD

@@ -24,12 +24,31 @@
 #define __MAIN_H__
 
 #include "api/m64p_types.h"
+#include "osal/preproc.h"
+
+#include "ai/controller.h"
+#include "pi/controller.h"
+#include "rdram/controller.h"
+#include "r4300/mi.h"
+#include "rdp/core.h"
+#include "rsp/core.h"
+#include "si/controller.h"
+#include "vi/controller.h"
 
 /* globals */
 extern m64p_handle g_CoreConfig;
 
 extern int g_MemHasBeenBSwapped;
 extern int g_EmulatorRunning;
+
+extern ALIGN(16, struct rdram_controller g_rdram);
+extern struct ai_controller g_ai;
+extern struct mi_controller g_mi;
+extern struct pi_controller g_pi;
+extern struct si_controller g_si;
+extern struct vi_controller g_vi;
+extern struct rdp_core g_dp;
+extern struct rsp_core g_sp;
 
 extern m64p_frame_callback g_FrameCallback;
 

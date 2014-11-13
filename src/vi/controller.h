@@ -24,6 +24,8 @@
 
 #include <stdint.h>
 
+struct mi_controller;
+
 /**
  * Video Interface registers 
  **/
@@ -54,11 +56,14 @@ struct vi_controller
     uint32_t regs[VI_REGS_COUNT];
     unsigned int duration;
     unsigned int field;
+
+    struct mi_controller* mi;
 };
 
 
 
-int init_vi(struct vi_controller* vi);
+int init_vi(struct vi_controller* vi,
+            struct mi_controller* mi);
 
 
 int read_vi_regs(struct vi_controller* vi,

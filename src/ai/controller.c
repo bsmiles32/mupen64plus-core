@@ -32,6 +32,7 @@
 #include "r4300/cp0.h"
 #include "r4300/interupt.h"
 #include "r4300/mi.h"
+#include "vi/controller.h"
 
 
 #if 0
@@ -79,7 +80,7 @@ static unsigned int get_dma_duration(struct ai_controller* ai)
     unsigned int samples_per_sec =
         ROM_PARAMS.aidacrate / (1 + ai->regs[AI_DACRATE_REG]);
 
-    return ((uint64_t)ai->regs[AI_LEN_REG] * g_vi.duration * ROM_PARAMS.vilimit)
+    return ((uint64_t)ai->regs[AI_LEN_REG] * ai->vi->duration * ROM_PARAMS.vilimit)
            / (4*samples_per_sec);
 }
 
@@ -123,9 +124,14 @@ void fifo_pop(struct ai_controller* ai)
 
 
 
-int init_ai(struct ai_controller* ai)
+int init_ai(struct ai_controller* ai,
+            struct mi_controller* mi,
+            struct vi_controller* vi)
 {
     memset(ai, 0, sizeof(*ai));
+
+    ai->mi = mi;
+    ai->vi = vi;
 
     return 0;
 }
@@ -186,7 +192,7 @@ int write_ai_regs(struct ai_controller* ai,
         break;
 
     case AI_STATUS_REG:
-        g_mi.regs[MI_INTR_REG] &= ~MI_INTR_AI;
+        ai->mi->regs[MI_INTR_REG] &= ~MI_INTR_AI;
         check_interupt();
         break;
 

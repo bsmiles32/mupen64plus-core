@@ -24,6 +24,9 @@
 
 #include <stdint.h>
 
+struct mi_controller;
+struct vi_controller;
+
 /**
  * Audio Interface registers 
  **/
@@ -58,11 +61,15 @@ struct ai_controller
 {
     uint32_t regs[AI_REGS_COUNT];
     struct ai_dma fifo[2]; /* 0: current, 1:pending */
+    struct mi_controller* mi;
+    struct vi_controller* vi;
 };
 
 
 
-int init_ai(struct ai_controller* ai);
+int init_ai(struct ai_controller* ai,
+            struct mi_controller* mi,
+            struct vi_controller* vi);
 
 
 int read_ai_regs(struct ai_controller* ai,

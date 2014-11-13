@@ -27,6 +27,9 @@
 
 #include "api/m64p_plugin.h"
 
+struct mi_controller;
+struct rsp_core;
+
 /**
  * Registers definition
  **/
@@ -63,11 +66,16 @@ struct rdp_core
     FrameBufferInfo fb_infos[FB_INFO_COUNT];
     char fb_read_dirty[0x800000 >> 12];
     int fb_first_protection;
+
+    struct mi_controller* mi;
+    struct rsp_core* sp;
 };
 
 
 
-int init_rdp(struct rdp_core* dp);
+int init_rdp(struct rdp_core* dp,
+             struct mi_controller* mi,
+             struct rsp_core* sp);
 
 
 int read_dpc_regs(struct rdp_core* dp,
