@@ -413,6 +413,7 @@ SOURCE = \
 	$(SRCDIR)/rdp/core.c \
 	$(SRCDIR)/rsp/core.c \
 	$(SRCDIR)/si/controller.c \
+	$(SRCDIR)/si/eeprom.c \
 	$(SRCDIR)/si/n64_cic_nus_6105.c \
 	$(SRCDIR)/si/pif.c \
 	$(SRCDIR)/vi/controller.c \
