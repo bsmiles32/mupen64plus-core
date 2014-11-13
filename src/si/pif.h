@@ -22,8 +22,10 @@
 #ifndef M64P_SI_PIF_H
 #define M64P_SI_PIF_H
 
-void update_pif_write(void);
-void update_pif_read(void);
+struct si_controller;
+
+void update_pif_write(struct si_controller* si);
+void update_pif_read(struct si_controller* si);
 
 #endif
 

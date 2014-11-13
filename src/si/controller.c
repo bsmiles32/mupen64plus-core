@@ -64,7 +64,7 @@ static void dma_si_write(struct si_controller* si)
         *((uint32_t*)(si->pif_ram + i)) = sl(si->rdram->ram[(si->regs[SI_DRAM_ADDR_REG]+i)/4]);
     }
 
-    update_pif_write();
+    update_pif_write(si);
     update_count();
 
     if (delay_si) {
@@ -86,7 +86,7 @@ static void dma_si_read(struct si_controller* si)
         stop=1;
     }
 
-    update_pif_read();
+    update_pif_read(si);
 
     for (i = 0; i < PIF_RAM_SIZE; i += 4)
     {
@@ -224,7 +224,7 @@ int write_pif_ram(struct si_controller* si,
         }
         else
         {
-            update_pif_write();
+            update_pif_write(si);
         }
     }
 
