@@ -25,7 +25,6 @@
 
 #include "ai/controller.h"
 #include "pi/controller.h"
-#include "pi/flashram.h"
 
 #include "r4300/r4300.h"
 #include "r4300/cached_interp.h"
@@ -55,12 +54,6 @@ struct rsp_core g_sp;
 #if NEW_DYNAREC != NEW_DYNAREC_ARM
 // address : address of the read/write operation being done
 unsigned int address = 0;
-#endif
-// *address_low = the lower 16 bit of the address :
-#ifdef M64P_BIG_ENDIAN
-static unsigned short *address_low = (unsigned short *)(&address)+1;
-#else
-static unsigned short *address_low = (unsigned short *)(&address);
 #endif
 
 // values that are being written are stored in these variables
@@ -321,9 +314,6 @@ int init_memory(void)
     init_pi(&g_pi, rom, rom_size);
     enum cic_type cic = detect_cic_type(rom + 0x40);
     init_si(&g_si, cic);
-
-    flashram_info.use_flashram = 0;
-    init_flashram();
 
     DebugMessage(M64MSG_VERBOSE, "Memory initialized");
     return 0;
@@ -1341,13 +1331,10 @@ void write_sid(void)
 
 void read_flashram_status(void)
 {
-    if (flashram_info.use_flashram != -1 && *address_low == 0)
-    {
-        *rdword = flashram_status();
-        flashram_info.use_flashram = 1;
-    }
-    else
-        DebugMessage(M64MSG_ERROR, "unknown read in read_flashram_status()");
+    uint32_t value;
+
+    if (pi_read_flashram_status(&g_pi, address, &value))
+        *rdword = value;
 }
 
 void read_flashram_statusb(void)
@@ -1383,13 +1370,7 @@ void write_flashram_dummyd(void)
 
 void write_flashram_command(void)
 {
-    if (flashram_info.use_flashram != -1 && *address_low == 0)
-    {
-        flashram_command(word);
-        flashram_info.use_flashram = 1;
-    }
-    else
-        DebugMessage(M64MSG_ERROR, "unknown write in write_flashram_command()");
+    pi_write_flashram_command(&g_pi, address, word, ~0U);
 }
 
 void write_flashram_commandb(void)

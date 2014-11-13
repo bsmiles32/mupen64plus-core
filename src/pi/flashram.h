@@ -22,21 +22,40 @@
 #ifndef M64P_PI_FLASHRAM_H
 #define M64P_PI_FLASHRAM_H
 
-typedef struct _flashram_info
+#include <stdint.h>
+
+struct pi_controller;
+
+enum flashram_mode
 {
-	int use_flashram;
-	int mode;
-	unsigned long long status;
-	unsigned int erase_offset, write_pointer;
-} Flashram_info;
+    FLASHRAM_MODE_NOPES = 0,
+    FLASHRAM_MODE_ERASE,
+    FLASHRAM_MODE_WRITE,
+    FLASHRAM_MODE_READ,
+    FLASHRAM_MODE_STATUS
+};
 
-extern Flashram_info flashram_info;
+enum { FLASHRAM_SIZE = 0x20000 };
 
-void init_flashram(void);
-void flashram_command(unsigned int command);
-unsigned int flashram_status(void);
-void dma_read_flashram(void);
-void dma_write_flashram(void);
+struct flashram_controller
+{
+    uint8_t flashram[FLASHRAM_SIZE];
+    int use_flashram;
+    enum flashram_mode mode;
+    uint64_t status;
+    unsigned int erase_offset;
+    unsigned int write_pointer;
+};
+
+int init_flashram(struct flashram_controller* flashram);
+
+int pi_read_flashram_status(struct pi_controller* pi,
+                            uint32_t address, uint32_t* value);
+int pi_write_flashram_command(struct pi_controller* pi,
+                              uint32_t address, uint32_t value, uint32_t mask);
+
+void dma_read_flashram(struct pi_controller* pi, uint32_t* ram);
+void dma_write_flashram(struct pi_controller* pi);
 
 #endif
 

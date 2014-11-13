@@ -26,6 +26,7 @@
 #include <stdint.h>
 
 #include "sram.h"
+#include "flashram.h"
 
 /**
  * Parallel Interface registers 
@@ -60,6 +61,8 @@ struct pi_controller
     uint32_t cart_last_write;
 
     uint8_t sram[SRAM_SIZE];
+
+    struct flashram_controller flashram;
 };
 
 
