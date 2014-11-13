@@ -19,6 +19,9 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.          *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+#ifndef M64P_PI_FLASHRAM_H
+#define M64P_PI_FLASHRAM_H
+
 typedef struct _flashram_info
 {
 	int use_flashram;
@@ -34,3 +37,6 @@ void flashram_command(unsigned int command);
 unsigned int flashram_status(void);
 void dma_read_flashram(void);
 void dma_write_flashram(void);
+
+#endif
+
