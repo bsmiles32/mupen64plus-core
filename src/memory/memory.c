@@ -79,13 +79,6 @@ void (*writememb[0x10000])(void);
 void (*writememd[0x10000])(void);
 void (*writememh[0x10000])(void);
 
-// uncomment to output count of calls to write_rdram():
-//#define COUNT_WRITE_RDRAM_CALLS 1
-
-#if defined( COUNT_WRITE_RDRAM_CALLS )
-	int writerdram_count = 1;
-#endif
-
 
 
 static inline unsigned int bshift(uint32_t address)
@@ -494,10 +487,6 @@ void read_rdramFBd(void)
 
 void write_rdram(void)
 {
-#if defined( COUNT_WRITE_RDRAM_CALLS )
-	printf( "write_rdram, word=%i, count: %i", word, writerdram_count );
-	writerdram_count++;
-#endif
     write_rdram_ram(&g_rdram, address, word, ~0U);
 }
 
