@@ -195,7 +195,7 @@ static void dma_pi_write(struct pi_controller* pi)
     // (This is just a convenient way to run this code once at the beginning)
     if (pi->regs[PI_CART_ADDR_REG] == 0x10001000)
     {
-        switch (g_si.cic)
+        switch (pi->si->cic)
         {
         case CIC_6101:
         case CIC_6102:
@@ -237,11 +237,15 @@ static void dma_pi_write(struct pi_controller* pi)
 
 int init_pi(struct pi_controller* pi,
             struct rdram_controller* rdram,
+            struct mi_controller* mi,
+            struct si_controller* si,
             uint8_t* cart_rom, size_t cart_rom_size)
 {
     memset(pi, 0, sizeof(*pi));
 
     pi->rdram = rdram;
+    pi->mi = mi;
+    pi->si = si;
 
     pi->cart_rom = cart_rom;
     pi->cart_rom_size = cart_rom_size;
@@ -298,7 +302,7 @@ int write_pi_regs(struct pi_controller* pi,
         value &= mask;
         if (value & 2)
         {
-            g_mi.regs[MI_INTR_REG] &= ~MI_INTR_PI;
+            pi->mi->regs[MI_INTR_REG] &= ~MI_INTR_PI;
             check_interupt();
         }
         break;

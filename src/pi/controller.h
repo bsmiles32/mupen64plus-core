@@ -29,6 +29,8 @@
 #include "flashram.h"
 
 struct rdram_controller;
+struct mi_controller;
+struct si_controller; /* FIXME: For RDRAM detection hack */
 
 /**
  * Parallel Interface registers 
@@ -59,6 +61,8 @@ struct pi_controller
     uint32_t regs[PI_REGS_COUNT];
 
     struct rdram_controller* rdram;
+    struct mi_controller* mi;
+    struct si_controller* si; /* FIXME: For RDRAM detection hack */
 
     uint8_t* cart_rom;
     size_t cart_rom_size;
@@ -73,6 +77,8 @@ struct pi_controller
 
 int init_pi(struct pi_controller* pi,
             struct rdram_controller* rdram,
+            struct mi_controller* mi,
+            struct si_controller* si,
             uint8_t* cart_rom, size_t cart_rom_size);
 
 
