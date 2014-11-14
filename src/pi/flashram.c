@@ -32,7 +32,7 @@
 #include "main/util.h"
 #include "memory/memory.h"
 #include "r4300/r4300.h"
-#include "rdram/controller.h"
+#include "ri/controller.h"
 
 
 static char *get_flashram_path(void)
@@ -191,7 +191,7 @@ int pi_write_flashram_command(struct pi_controller* pi,
     if (flashram->use_flashram != -1 && (address & 0xffff) == 0)
     {
         // FIXME
-        flashram_command(flashram, (uint8_t*)pi->rdram->ram, value & mask);
+        flashram_command(flashram, (uint8_t*)pi->ri->ram, value & mask);
         flashram->use_flashram = 1;
     }
     else
@@ -208,7 +208,7 @@ void dma_read_flashram(struct pi_controller* pi)
 {
     unsigned int i;
     struct flashram_controller* flashram = &pi->flashram;
-    uint32_t* ram = pi->rdram->ram;
+    uint32_t* ram = pi->ri->ram;
 
     switch (flashram->mode)
     {

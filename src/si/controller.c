@@ -32,7 +32,7 @@
 #include "r4300/cp0.h"
 #include "r4300/interupt.h"
 #include "r4300/mi.h"
-#include "rdram/controller.h"
+#include "ri/controller.h"
 
 #if 0
 static const char* si_regs_name[SI_REGS_COUNT] =
@@ -61,7 +61,7 @@ static void dma_si_write(struct si_controller* si)
 
     for (i = 0; i < PIF_RAM_SIZE; i += 4)
     {
-        *((uint32_t*)(si->pif_ram + i)) = sl(si->rdram->ram[(si->regs[SI_DRAM_ADDR_REG]+i)/4]);
+        *((uint32_t*)(si->pif_ram + i)) = sl(si->ri->ram[(si->regs[SI_DRAM_ADDR_REG]+i)/4]);
     }
 
     update_pif_write(si);
@@ -90,7 +90,7 @@ static void dma_si_read(struct si_controller* si)
 
     for (i = 0; i < PIF_RAM_SIZE; i += 4)
     {
-        si->rdram->ram[(si->regs[SI_DRAM_ADDR_REG]+i)/4] = sl(*(uint32_t*)(si->pif_ram + i));
+        si->ri->ram[(si->regs[SI_DRAM_ADDR_REG]+i)/4] = sl(*(uint32_t*)(si->pif_ram + i));
     }
 
     update_count();
@@ -107,13 +107,13 @@ static void dma_si_read(struct si_controller* si)
 
 
 int init_si(struct si_controller* si,
-            struct rdram_controller* rdram,
+            struct ri_controller* ri,
             struct mi_controller* mi,
             enum cic_type cic)
 {
     memset(si, 0, sizeof(*si));
 
-    si->rdram = rdram;
+    si->ri = ri;
     si->mi = mi;
 
     si->cic = cic;

@@ -59,11 +59,11 @@ static const char* ri_regs_name[RI_REGS_COUNT] =
 
 
 
-int init_rdram(struct rdram_controller* rdram)
+int init_ri(struct ri_controller* ri)
 {
-    memset(rdram->ram, 0, RDRAM_MAX_SIZE);
-    memset(rdram->rdram_regs, 0, RDRAM_REGS_COUNT*sizeof(rdram->rdram_regs[0]));
-    memset(rdram->ri_regs, 0, RI_REGS_COUNT*sizeof(rdram->ri_regs[0]));
+    memset(ri->ram, 0, RDRAM_MAX_SIZE);
+    memset(ri->rdram_regs, 0, RDRAM_REGS_COUNT*sizeof(ri->rdram_regs[0]));
+    memset(ri->ri_regs, 0, RI_REGS_COUNT*sizeof(ri->ri_regs[0]));
 
     return 0;
 }
@@ -77,22 +77,22 @@ static inline uint32_t ram_address(uint32_t address)
     return (address & 0xffffff) >> 2;
 }
 
-int read_rdram_ram(struct rdram_controller* rdram,
+int read_rdram_ram(struct ri_controller* ri,
                    uint32_t address, uint32_t* value)
 {
     uint32_t addr = ram_address(address);
 
-    *value = rdram->ram[addr];
+    *value = ri->ram[addr];
 
     return 0;
 }
 
-int write_rdram_ram(struct rdram_controller* rdram,
+int write_rdram_ram(struct ri_controller* ri,
                     uint32_t address, uint32_t value, uint32_t mask)
 {
     uint32_t addr = ram_address(address);
 
-    masked_write(&rdram->ram[addr], value, mask);
+    masked_write(&ri->ram[addr], value, mask);
 
     return 0;
 }
@@ -106,24 +106,24 @@ static inline uint32_t rdram_reg(uint32_t address)
     return (address & 0x3ff) >> 2;
 }
 
-int read_rdram_regs(struct rdram_controller* rdram,
+int read_rdram_regs(struct ri_controller* ri,
                     uint32_t address, uint32_t* value)
 {
     uint32_t reg = rdram_reg(address);
 
-    *value = rdram->rdram_regs[reg];
+    *value = ri->rdram_regs[reg];
 
 //    DebugMessage(M64MSG_WARNING, "%s -> %08x", rdram_regs_name[reg], *value);
 
     return 0;
 }
 
-int write_rdram_regs(struct rdram_controller* rdram,
+int write_rdram_regs(struct ri_controller* ri,
                      uint32_t address, uint32_t value, uint32_t mask)
 {
     uint32_t reg = rdram_reg(address);
 
-    masked_write(&rdram->rdram_regs[reg], value, mask);
+    masked_write(&ri->rdram_regs[reg], value, mask);
     
 //    DebugMessage(M64MSG_WARNING, "%s <- %08x",  rdram_regs_name[reg], value);
 
@@ -139,24 +139,24 @@ static inline uint32_t ri_reg(uint32_t address)
     return (address & 0xffff) >> 2;
 }
 
-int read_ri_regs(struct rdram_controller* rdram,
+int read_ri_regs(struct ri_controller* ri,
                  uint32_t address, uint32_t* value)
 {
     uint32_t reg = ri_reg(address);
 
-    *value = rdram->ri_regs[reg];
+    *value = ri->ri_regs[reg];
 
 //    DebugMessage(M64MSG_WARNING, "%s -> %08x", ri_regs_name[reg], *value);
 
     return 0;
 }
 
-int write_ri_regs(struct rdram_controller* rdram,
+int write_ri_regs(struct ri_controller* ri,
                   uint32_t address, uint32_t value, uint32_t mask)
 {
     uint32_t reg = ri_reg(address);
 
-    masked_write(&rdram->ri_regs[reg], value, mask);
+    masked_write(&ri->ri_regs[reg], value, mask);
 
 //    DebugMessage(M64MSG_WARNING, "%s <- %08x", ri_regs_name[reg], value);
 

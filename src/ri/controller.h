@@ -19,8 +19,8 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.          *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#ifndef M64P_RDRAM_CONTROLLER_H
-#define M64P_RDRAM_CONTROLLER_H
+#ifndef M64P_RI_CONTROLLER_H
+#define M64P_RI_CONTROLLER_H
 
 #include <stdint.h>
 
@@ -54,29 +54,29 @@ enum ri_registers
 
 enum { RDRAM_MAX_SIZE = 0x800000 };
 
-struct rdram_controller
+struct ri_controller
 {
     uint32_t ram[RDRAM_MAX_SIZE/4];
     uint32_t rdram_regs[RDRAM_REGS_COUNT];
     uint32_t ri_regs[RI_REGS_COUNT];
 };
 
-int init_rdram(struct rdram_controller* rdram);
+int init_ri(struct ri_controller* ri);
 
 
-int read_rdram_ram(struct rdram_controller* rdram,
+int read_rdram_ram(struct ri_controller* ri,
                    uint32_t address, uint32_t* value);
-int write_rdram_ram(struct rdram_controller* rdram,
+int write_rdram_ram(struct ri_controller* ri,
                     uint32_t address, uint32_t value, uint32_t mask);
 
-int read_ri_regs(struct rdram_controller* rdram,
+int read_ri_regs(struct ri_controller* ri,
                  uint32_t address, uint32_t* value);
-int write_ri_regs(struct rdram_controller* rdram,
+int write_ri_regs(struct ri_controller* ri,
                   uint32_t address, uint32_t value, uint32_t mask);
 
-int read_rdram_regs(struct rdram_controller* rdram,
+int read_rdram_regs(struct ri_controller* ri,
                     uint32_t address, uint32_t* value);
-int write_rdram_regs(struct rdram_controller* rdram,
+int write_rdram_regs(struct ri_controller* ri,
                      uint32_t address, uint32_t value, uint32_t mask);
 
 #endif

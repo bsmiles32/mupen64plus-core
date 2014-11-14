@@ -96,7 +96,7 @@ void dma_read_sram(struct pi_controller* pi)
     size_t i_max = (pi->regs[PI_WR_LEN_REG] & 0xffffff) + 1;
     uint32_t sram_addr = sram_address(pi->regs[PI_CART_ADDR_REG]);
     uint32_t dram_addr = pi->regs[PI_DRAM_ADDR_REG];
-    uint8_t* ram = (uint8_t*)pi->rdram->ram;
+    uint8_t* ram = (uint8_t*)pi->ri->ram;
 
     sram_read_file(pi);
 
@@ -112,7 +112,7 @@ void dma_write_sram(struct pi_controller* pi)
     size_t i_max = (pi->regs[PI_RD_LEN_REG] & 0xffffff) + 1;
     uint32_t sram_addr = sram_address(pi->regs[PI_CART_ADDR_REG]);
     uint32_t dram_addr = pi->regs[PI_DRAM_ADDR_REG];
-    const uint8_t* ram = (uint8_t*)pi->rdram->ram;
+    const uint8_t* ram = (uint8_t*)pi->ri->ram;
 
     sram_read_file(pi);
 

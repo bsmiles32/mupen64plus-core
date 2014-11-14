@@ -26,7 +26,7 @@
 
 struct rdp_core;
 struct mi_controller;
-struct rdram_controller;
+struct ri_controller;
 
 /**
  * Registers definition
@@ -62,7 +62,7 @@ struct rsp_core
 
     struct rdp_core* dp;
     struct mi_controller* mi;
-    struct rdram_controller* rdram;
+    struct ri_controller* ri;
 };
 
 
@@ -70,7 +70,7 @@ struct rsp_core
 int init_rsp(struct rsp_core* sp,
              struct rdp_core* dp,
              struct mi_controller* mi,
-             struct rdram_controller* rdram);
+             struct ri_controller* ri);
 
 int read_rsp_mem(struct rsp_core* sp,
                  uint32_t address, uint32_t* value);

@@ -28,7 +28,7 @@
 
 #include "ai/controller.h"
 #include "pi/controller.h"
-#include "rdram/controller.h"
+#include "ri/controller.h"
 #include "r4300/mi.h"
 #include "rdp/core.h"
 #include "rsp/core.h"
@@ -41,7 +41,7 @@ extern m64p_handle g_CoreConfig;
 extern int g_MemHasBeenBSwapped;
 extern int g_EmulatorRunning;
 
-extern ALIGN(16, struct rdram_controller g_rdram);
+extern ALIGN(16, struct ri_controller g_ri);
 extern struct ai_controller g_ai;
 extern struct mi_controller g_mi;
 extern struct pi_controller g_pi;

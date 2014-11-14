@@ -37,7 +37,7 @@
 #include "r4300/mi.h"
 #include "r4300/r4300.h"
 #include "r4300/new_dynarec/new_dynarec.h"
-#include "rdram/controller.h"
+#include "ri/controller.h"
 #include "si/controller.h"
 
 #include "main/main.h"
@@ -156,7 +156,7 @@ static void dma_pi_write(struct pi_controller* pi)
         {
             unsigned long rdram_address1 = pi->regs[PI_DRAM_ADDR_REG]+i+0x80000000;
             unsigned long rdram_address2 = pi->regs[PI_DRAM_ADDR_REG]+i+0xa0000000;
-            ((unsigned char*)pi->rdram->ram)[(pi->regs[PI_DRAM_ADDR_REG]+i)^S8]=
+            ((unsigned char*)pi->ri->ram)[(pi->regs[PI_DRAM_ADDR_REG]+i)^S8]=
                 rom[(((pi->regs[PI_CART_ADDR_REG]-0x10000000)&0x3FFFFFF)+i)^S8];
 
             if (!invalid_code[rdram_address1>>12])
@@ -186,7 +186,7 @@ static void dma_pi_write(struct pi_controller* pi)
     {
         for (i=0; i<(int)longueur; i++)
         {
-            ((unsigned char*)pi->rdram->ram)[(pi->regs[PI_DRAM_ADDR_REG]+i)^S8]=
+            ((unsigned char*)pi->ri->ram)[(pi->regs[PI_DRAM_ADDR_REG]+i)^S8]=
                 rom[(((pi->regs[PI_CART_ADDR_REG]-0x10000000)&0x3FFFFFF)+i)^S8];
         }
     }
@@ -204,11 +204,11 @@ static void dma_pi_write(struct pi_controller* pi)
         {
             if (ConfigGetParamInt(g_CoreConfig, "DisableExtraMem"))
             {
-                write_rdram_ram(pi->rdram, 0x318, 0x400000, ~0U);
+                write_rdram_ram(pi->ri, 0x318, 0x400000, ~0U);
             }
             else
             {
-                write_rdram_ram(pi->rdram, 0x318, 0x800000, ~0U);
+                write_rdram_ram(pi->ri, 0x318, 0x800000, ~0U);
             }
             break;
         }
@@ -216,11 +216,11 @@ static void dma_pi_write(struct pi_controller* pi)
         {
             if (ConfigGetParamInt(g_CoreConfig, "DisableExtraMem"))
             {
-                write_rdram_ram(pi->rdram, 0x3f0, 0x400000, ~0U);
+                write_rdram_ram(pi->ri, 0x3f0, 0x400000, ~0U);
             }
             else
             {
-                write_rdram_ram(pi->rdram, 0x3f0, 0x800000, ~0U);
+                write_rdram_ram(pi->ri, 0x3f0, 0x800000, ~0U);
             }
             break;
         }
@@ -236,14 +236,14 @@ static void dma_pi_write(struct pi_controller* pi)
 
 
 int init_pi(struct pi_controller* pi,
-            struct rdram_controller* rdram,
+            struct ri_controller* ri,
             struct mi_controller* mi,
             struct si_controller* si,
             uint8_t* cart_rom, size_t cart_rom_size)
 {
     memset(pi, 0, sizeof(*pi));
 
-    pi->rdram = rdram;
+    pi->ri = ri;
     pi->mi = mi;
     pi->si = si;
 

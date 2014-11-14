@@ -71,7 +71,7 @@ static void dma_sp_write(struct rsp_core* sp)
 
     unsigned char *spmem = ((unsigned char*)sp->mem)
                          + (sp->regs[SP_MEM_ADDR_REG] & 0x1000);
-    unsigned char *dram = (unsigned char*)sp->rdram->ram;
+    unsigned char *dram = (unsigned char*)sp->ri->ram;
 
     for(j=0; j<count; j++) {
         for(i=0; i<length; i++) {
@@ -98,7 +98,7 @@ static void dma_sp_read(struct rsp_core* sp)
 
     unsigned char *spmem = ((unsigned char*)sp->mem)
                          + (sp->regs[SP_MEM_ADDR_REG] & 0x1000);
-    unsigned char *dram = (unsigned char*)sp->rdram->ram;
+    unsigned char *dram = (unsigned char*)sp->ri->ram;
 
     for(j=0; j<count; j++) {
         for(i=0; i<length; i++) {
@@ -182,7 +182,7 @@ void do_SP_Task(struct rsp_core* sp)
 int init_rsp(struct rsp_core* sp,
              struct rdp_core* dp,
              struct mi_controller* mi,
-             struct rdram_controller* rdram)
+             struct ri_controller* ri)
 {
     memset(sp, 0, sizeof(*sp));
     
@@ -190,7 +190,7 @@ int init_rsp(struct rsp_core* sp,
 
     sp->dp = dp;
     sp->mi = mi;
-    sp->rdram = rdram;
+    sp->ri = ri;
 
     return 0;
 }
