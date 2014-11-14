@@ -23,6 +23,7 @@
 #include "game_controller.h"
 #include "controller.h"
 #include "mempack.h"
+#include "pif.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -91,13 +92,13 @@ static void internal_ReadController(uint8_t channel, uint8_t* command)
 {
     switch (command[2])
     {
-    case 0x01:
+    case PIF_CMD_CONTROLLER_READ:
         read_buttons(channel, command);
         break;
-    case 0x02:
+    case PIF_CMD_CONTROLLERPAK_READ:
         read_pack(channel, command);
         break;
-    case 0x03:
+    case PIF_CMD_CONTROLLERPAK_WRITE:
         write_pack(channel, command);
         break;
     }
@@ -107,8 +108,8 @@ static void internal_ControllerCommand(struct si_controller* si, uint8_t channel
 {
     switch (command[2])
     {
-    case 0x00: // read status
-    case 0xff: // reset
+    case PIF_CMD_GET_STATUS:
+    case PIF_CMD_RESET:
         if ((command[1] & 0x80))
             break;
 #ifdef DEBUG_PIF
@@ -137,7 +138,7 @@ static void internal_ControllerCommand(struct si_controller* si, uint8_t channel
             command[1] |= 0x80;
         break;
 
-    case 0x01:
+    case PIF_CMD_CONTROLLER_READ:
 #ifdef DEBUG_PIF
         DebugMessage(M64MSG_INFO,
                      "Channel %i Command 1 check controller present",
@@ -147,7 +148,7 @@ static void internal_ControllerCommand(struct si_controller* si, uint8_t channel
             command[1] |= 0x80;
         break;
 
-    case 0x02: // read controller pack
+    case PIF_CMD_CONTROLLERPAK_READ:
         if (Controls[channel].Present)
         {
             switch (Controls[channel].Plugin)
@@ -178,7 +179,7 @@ static void internal_ControllerCommand(struct si_controller* si, uint8_t channel
             command[1] |= 0x80;
         break;
 
-    case 0x03: // write controller pack
+    case PIF_CMD_CONTROLLERPAK_WRITE:
         if (Controls[channel].Present)
         {
             switch (Controls[channel].Plugin)

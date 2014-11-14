@@ -24,6 +24,20 @@
 
 struct si_controller;
 
+enum
+{
+    PIF_CMD_GET_STATUS,
+    PIF_CMD_CONTROLLER_READ,
+    PIF_CMD_CONTROLLERPAK_READ,
+    PIF_CMD_CONTROLLERPAK_WRITE,
+    PIF_CMD_EEPROM_READ,
+    PIF_CMD_EEPROM_WRITE,
+    PIF_CMD_RTC_GET_STATUS,
+    PIF_CMD_RTC_READ,
+    PIF_CMD_RTC_WRITE,
+    PIF_CMD_RESET = 0xff
+};
+
 void update_pif_write(struct si_controller* si);
 void update_pif_read(struct si_controller* si);
 

@@ -20,6 +20,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "eeprom.h"
+#include "pif.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -30,17 +31,6 @@
 #include "main/main.h"
 #include "main/rom.h"
 #include "main/util.h"
-
-enum
-{
-    EEPROM_CMD_CHECK = 0,
-    EEPROM_CMD_READ = 4,
-    EEPROM_CMD_WRITE = 5,
-    EEPROM_CMD_RTC_GET_STATUS = 6,
-    EEPROM_CMD_RTC_READ_BLOCK = 7,
-    EEPROM_CMD_RTC_WRITE_BLOCK = 8
-};
-
 
 static char *get_eeprom_path(void)
 {
@@ -198,23 +188,22 @@ void process_eeprom_command(struct eeprom_controller* eeprom, uint8_t* command)
 {
     switch (command[2])
     {
-    case EEPROM_CMD_CHECK:
+    case PIF_CMD_GET_STATUS:
         process_check_command(eeprom, command);
         break;
-    case EEPROM_CMD_READ:
+    case PIF_CMD_EEPROM_READ:
         process_read_command(eeprom, command);
         break;
-    case EEPROM_CMD_WRITE:
+    case PIF_CMD_EEPROM_WRITE:
         process_write_command(eeprom, command);
         break;
-    case EEPROM_CMD_RTC_GET_STATUS:
+    case PIF_CMD_RTC_GET_STATUS:
         process_rtc_status_query(eeprom, command);
         break;
-    case EEPROM_CMD_RTC_READ_BLOCK:
+    case PIF_CMD_RTC_READ:
         process_read_rtc_block(eeprom, command);
         break;
-    case EEPROM_CMD_RTC_WRITE_BLOCK:
-        // write RTC block
+    case PIF_CMD_RTC_WRITE:
         process_write_rtc_block(eeprom, command);
         break;
     default:
