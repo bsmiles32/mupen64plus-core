@@ -31,6 +31,17 @@
 #include "main/rom.h"
 #include "main/util.h"
 
+enum
+{
+    EEPROM_CMD_CHECK = 0,
+    EEPROM_CMD_READ = 4,
+    EEPROM_CMD_WRITE = 5,
+    EEPROM_CMD_RTC_GET_STATUS = 6,
+    EEPROM_CMD_RTC_READ_BLOCK = 7,
+    EEPROM_CMD_RTC_WRITE_BLOCK = 8
+};
+
+
 static char *get_eeprom_path(void)
 {
     return formatstr("%s%s.eep", get_savesrampath(), ROM_SETTINGS.goodname);
@@ -181,12 +192,6 @@ static void process_write_rtc_block(struct eeprom_controller* eeprom, uint8_t* c
                  command[2]);
 }
 
-
-
-int init_eeprom(struct eeprom_controller* eeprom)
-{
-    return 0;
-}
 
 
 void process_eeprom_command(struct eeprom_controller* eeprom, uint8_t* command)

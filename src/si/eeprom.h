@@ -24,24 +24,12 @@
 
 #include <stdint.h>
 
-enum
-{
-    EEPROM_CMD_CHECK = 0,
-    EEPROM_CMD_READ = 4,
-    EEPROM_CMD_WRITE = 5,
-    EEPROM_CMD_RTC_GET_STATUS = 6,
-    EEPROM_CMD_RTC_READ_BLOCK = 7,
-    EEPROM_CMD_RTC_WRITE_BLOCK = 8
-};
-
 enum { EEPROM_SIZE  = 0x800 };
 
 struct eeprom_controller
 {
     uint8_t eeprom[EEPROM_SIZE];
 };
-
-int init_eeprom(struct eeprom_controller* eeprom);
 
 void process_eeprom_command(struct eeprom_controller* eeprom, uint8_t* command);
 
