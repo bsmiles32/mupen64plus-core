@@ -25,6 +25,7 @@
 #include <stdint.h>
 
 #include "eeprom.h"
+#include "mempack.h"
 
 struct rdram_controller;
 struct mi_controller;
@@ -63,6 +64,7 @@ struct si_controller
     uint32_t regs[SI_REGS_COUNT];
     uint8_t pif_ram[PIF_RAM_SIZE];
     struct eeprom_controller eeprom;
+    struct mempack_controller mempack;
     struct rdram_controller* rdram;
     struct mi_controller* mi;
     enum cic_type cic;

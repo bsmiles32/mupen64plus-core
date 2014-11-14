@@ -26,6 +26,7 @@
 #include "pif.h"
 
 #include "eeprom.h"
+#include "mempack.h"
 #include "n64_cic_nus_6105.h"
 
 #include "r4300/r4300.h"
@@ -40,84 +41,6 @@
 #include "memory/memory.h"
 #include "plugin/plugin.h"
 
-static unsigned char mempack[4][0x8000];
-
-static char *get_mempack_path(void)
-{
-    return formatstr("%s%s.mpk", get_savesrampath(), ROM_SETTINGS.goodname);
-}
-
-static void mempack_format(void)
-{
-    unsigned char init[] =
-    {
-        0x81,0x01,0x02,0x03, 0x04,0x05,0x06,0x07, 0x08,0x09,0x0a,0x0b, 0x0c,0x0d,0x0e,0x0f,
-        0x10,0x11,0x12,0x13, 0x14,0x15,0x16,0x17, 0x18,0x19,0x1a,0x1b, 0x1c,0x1d,0x1e,0x1f,
-        0xff,0xff,0xff,0xff, 0x05,0x1a,0x5f,0x13, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
-        0xff,0xff,0xff,0xff, 0xff,0xff,0xff,0xff, 0xff,0xff,0x01,0xff, 0x66,0x25,0x99,0xcd,
-        0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
-        0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
-        0xff,0xff,0xff,0xff, 0x05,0x1a,0x5f,0x13, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
-        0xff,0xff,0xff,0xff, 0xff,0xff,0xff,0xff, 0xff,0xff,0x01,0xff, 0x66,0x25,0x99,0xcd,
-        0xff,0xff,0xff,0xff, 0x05,0x1a,0x5f,0x13, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
-        0xff,0xff,0xff,0xff, 0xff,0xff,0xff,0xff, 0xff,0xff,0x01,0xff, 0x66,0x25,0x99,0xcd,
-        0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
-        0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
-        0xff,0xff,0xff,0xff, 0x05,0x1a,0x5f,0x13, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
-        0xff,0xff,0xff,0xff, 0xff,0xff,0xff,0xff, 0xff,0xff,0x01,0xff, 0x66,0x25,0x99,0xcd,
-        0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
-        0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
-        0x00,0x71,0x00,0x03, 0x00,0x03,0x00,0x03, 0x00,0x03,0x00,0x03, 0x00,0x03,0x00,0x03
-    };
-    int i,j;
-    for (i=0; i<4; i++)
-    {
-        for (j=0; j<0x8000; j+=2)
-        {
-            mempack[i][j] = 0;
-            mempack[i][j+1] = 0x03;
-        }
-        memcpy(mempack[i], init, 272);
-    }
-}
-
-static void mempack_read_file(void)
-{
-    char *filename = get_mempack_path();
-
-    switch (read_from_file(filename, mempack, sizeof(mempack)))
-    {
-        case file_open_error:
-            DebugMessage(M64MSG_VERBOSE, "couldn't open memory pack file '%s' for reading", filename);
-            mempack_format();
-            break;
-        case file_read_error:
-            DebugMessage(M64MSG_WARNING, "fread() failed for 128kb mempack file '%s'", filename);
-            break;
-        default: break;
-    }
-
-    free(filename);
-}
-
-static void mempack_write_file(void)
-{
-    char *filename = get_mempack_path();
-
-    switch (write_to_file(filename, mempack, sizeof(mempack)))
-    {
-        case file_open_error:
-            DebugMessage(M64MSG_WARNING, "couldn't open memory pack file '%s' for writing", filename);
-            break;
-        case file_write_error:
-            DebugMessage(M64MSG_WARNING, "fwrite() failed for 128kb mempack file '%s'", filename);
-            break;
-        default: break;
-    }
-
-    free(filename);
-}
-
 //#define DEBUG_PIF
 #ifdef DEBUG_PIF
 void print_pif(struct si_controller* si)
@@ -129,24 +52,6 @@ void print_pif(struct si_controller* si)
                      si->pif_ram[i*8+4], si->pif_ram[i*8+5],si->pif_ram[i*8+6], si->pif_ram[i*8+7]);
 }
 #endif
-
-static unsigned char mempack_crc(unsigned char *data)
-{
-    int i;
-    unsigned char CRC = 0;
-    for (i=0; i<=0x20; i++)
-    {
-        int mask;
-        for (mask = 0x80; mask >= 1; mask >>= 1)
-        {
-            int xor_tap = (CRC & 0x80) ? 0x85 : 0x00;
-            CRC <<= 1;
-            if (i != 0x20 && (data[i] & mask)) CRC |= 1;
-            CRC ^= xor_tap;
-        }
-    }
-    return CRC;
-}
 
 static void internal_ReadController(int Control, unsigned char *Command)
 {
@@ -191,7 +96,7 @@ static void internal_ReadController(int Control, unsigned char *Command)
     }
 }
 
-static void internal_ControllerCommand(int Control, unsigned char *Command)
+static void internal_ControllerCommand(struct si_controller* si, int Control, unsigned char *Command)
 {
     switch (Command[2])
     {
@@ -235,32 +140,8 @@ static void internal_ControllerCommand(int Control, unsigned char *Command)
             switch (Controls[Control].Plugin)
             {
             case PLUGIN_MEMPAK:
-            {
-                int address = (Command[3] << 8) | Command[4];
-#ifdef DEBUG_PIF
-                DebugMessage(M64MSG_INFO, "internal_ControllerCommand() Channel %i Command 2 read mempack address %04x", Control, address);
-#endif
-                if (address == 0x8001)
-                {
-                    memset(&Command[5], 0, 0x20);
-                    Command[0x25] = mempack_crc(&Command[5]);
-                }
-                else
-                {
-                    address &= 0xFFE0;
-                    if (address <= 0x7FE0)
-                    {
-                        mempack_read_file();
-                        memcpy(&Command[5], &mempack[Control][address], 0x20);
-                    }
-                    else
-                    {
-                        memset(&Command[5], 0, 0x20);
-                    }
-                    Command[0x25] = mempack_crc(&Command[5]);
-                }
-            }
-            break;
+                read_mempack(&si->mempack, Control, Command);
+                break;
             case PLUGIN_RAW:
 #ifdef DEBUG_PIF
                 DebugMessage(M64MSG_INFO, "internal_ControllerCommand() Channel %i Command 2 controllerCommand (in Input plugin)", Control);
@@ -285,26 +166,8 @@ static void internal_ControllerCommand(int Control, unsigned char *Command)
             switch (Controls[Control].Plugin)
             {
             case PLUGIN_MEMPAK:
-            {
-                int address = (Command[3] << 8) | Command[4];
-#ifdef DEBUG_PIF
-                DebugMessage(M64MSG_INFO, "internal_ControllerCommand() Channel %i Command 3 write mempack address %04x", Control, address);
-#endif
-                if (address == 0x8001)
-                    Command[0x25] = mempack_crc(&Command[5]);
-                else
-                {
-                    address &= 0xFFE0;
-                    if (address <= 0x7FE0)
-                    {
-                        mempack_read_file();
-                        memcpy(&mempack[Control][address], &Command[5], 0x20);
-                        mempack_write_file();
-                    }
-                    Command[0x25] = mempack_crc(&Command[5]);
-                }
-            }
-            break;
+                write_mempack(&si->mempack, Control, Command);
+                break;
             case PLUGIN_RAW:
 #ifdef DEBUG_PIF
                 DebugMessage(M64MSG_INFO, "internal_ControllerCommand() Channel %i Command 3 controllerCommand (in Input plugin)", Control);
@@ -385,7 +248,7 @@ void update_pif_write(struct si_controller* si)
                             Controls[channel].RawData)
                         input.controllerCommand(channel, &si->pif_ram[i]);
                     else
-                        internal_ControllerCommand(channel, &si->pif_ram[i]);
+                        internal_ControllerCommand(si, channel, &si->pif_ram[i]);
                 }
                 else if (channel == 4)
                     process_eeprom_command(&si->eeprom, &si->pif_ram[i]);
