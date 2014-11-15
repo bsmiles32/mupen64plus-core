@@ -1469,15 +1469,18 @@ unsigned int *fast_mem_access(unsigned int address)
 {
     /* This code is performance critical, specially on pure interpreter mode.
      * Removing error checking saves some time, but the emulator may crash. */
-    if (address < 0x80000000 || address >= 0xc0000000)
+
+    if ((address & 0xc0000000) != 0x80000000) /* not in [0x80000000-0xc0000000[ */
         address = virtual_to_physical_address(address, 2);
 
-    if ((address & 0x1FFFFFFF) >= 0x10000000)
-        return (unsigned int *)g_pi.cart_rom + ((address & 0x1FFFFFFF) - 0x10000000)/4;
-    else if ((address & 0x1FFFFFFF) < RDRAM_MAX_SIZE)
-        return (unsigned int *)g_ri.ram + (address & 0x1FFFFFFF)/4;
-    else if (address >= 0xa4000000 && address <= 0xa4002000)
-        return &g_sp.mem[(address & 0x1fff) / 4];
+    address &= 0x1ffffffc;
+
+    if (address < RDRAM_MAX_SIZE)
+        return (unsigned int*)((uint8_t*)g_ri.ram + address);
+    else if (address >= 0x10000000)
+        return (unsigned int*)((uint8_t*)g_pi.cart_rom + address - 0x10000000);
+    else if ((address & 0xffffe000) == 0x04000000) /* in [0x04000000-0x04002000[ */
+        return (unsigned int*)((uint8_t*)g_sp.mem + (address & 0x1ffc));
     else
         return NULL;
 }
