@@ -19,102 +19,271 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.          *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#include "api/m64p_types.h"
-
 #include "memory.h"
 
+#include "api/m64p_types.h"
+#include "api/callbacks.h"
+
 #include "main/main.h"
+#include "main/rom.h"
 
 #include "r4300/r4300.h"
 #include "r4300/cached_interp.h"
 #include "r4300/tlb.h"
 
-#include "api/callbacks.h"
-#include "main/rom.h"
-#include "r4300/new_dynarec/new_dynarec.h"
-
-#if NEW_DYNAREC != NEW_DYNAREC_ARM
-// address : address of the read/write operation being done
-unsigned int address = 0;
-#endif
-
-// values that are being written are stored in these variables
-#if NEW_DYNAREC != NEW_DYNAREC_ARM
-unsigned int word;
-unsigned char cpu_byte;
-unsigned short hword;
-unsigned long long int dword;
-#endif
-
-// addresse where the read value will be stored
-unsigned long long int* rdword;
-
-// hash tables of read functions
-void (*readmem[0x10000])(void);
-void (*readmemb[0x10000])(void);
-void (*readmemh[0x10000])(void);
-void (*readmemd[0x10000])(void);
-
-// hash tables of write functions
-void (*writemem[0x10000])(void);
-void (*writememb[0x10000])(void);
-void (*writememd[0x10000])(void);
-void (*writememh[0x10000])(void);
 
 
+/* hash tables of read functions, write functions */
+static int (*readmem[0x10000])(uint32_t, uint32_t*) ;
+static int (*writemem[0x10000])(uint32_t, uint32_t, uint32_t);
 
-static inline unsigned int bshift(uint32_t address)
+
+static int read_nothing(uint32_t address, uint32_t* value)
 {
-    return ((address & 3) ^ 3) << 3;
+    /* XXX: document */
+    if (address == 0xa5000508) *value = 0xFFFFFFFF;
+    else *value = 0;
+
+    return 0;
 }
 
-static inline unsigned int hshift(uint32_t address)
+static int write_nothing(uint32_t address, uint32_t value, uint32_t mask)
 {
-    return ((address & 2) ^ 2) << 3;
+    return 0;
 }
 
 
-void map_region_r(uint16_t region,
-        void (*readb)(void),
-        void (*readh)(void),
-        void (*readw)(void),
-        void (*readd)(void))
+
+static int read_nomem(uint32_t address, uint32_t* value)
 {
-    readmemb[region] = readb;
-    readmemh[region] = readh;
-    readmem [region] = readw;
-    readmemd[region] = readd;
+    address = virtual_to_physical_address(address,0);
+
+    if (address == 0x00000000)
+        return -1;
+
+    return read_word(address, value);
 }
 
-void map_region_w(uint16_t region,
-        void (*writeb)(void),
-        void (*writeh)(void),
-        void (*writew)(void),
-        void (*writed)(void))
+static int write_nomem(uint32_t address, uint32_t value, uint32_t mask)
 {
-    writememb[region] = writeb;
-    writememh[region] = writeh;
-    writemem [region] = writew;
-    writememd[region] = writed;
-}
+    if (r4300emu != CORE_PURE_INTERPRETER && !invalid_code[address>>12])
+        if (blocks[address>>12]->block[(address&0xFFF)/4].ops !=
+            current_instruction_table.NOTCOMPILED)
+            invalid_code[address>>12] = 1;
 
-void map_region(uint16_t region,
-        void (*readb)(void),
-        void (*readh)(void),
-        void (*readw)(void),
-        void (*readd)(void),
-        void (*writeb)(void),
-        void (*writeh)(void),
-        void (*writew)(void),
-        void (*writed)(void))
-{
-    map_region_r(region, readb, readh, readw, readd);
-    map_region_w(region, writeb, writeh, writew, writed);
+    address = virtual_to_physical_address(address,1);
+    if (address == 0x00000000)
+        return -1;
+
+    return write_word(address, value, mask);
 }
 
 
-#define R(x) read_ ## x ## b, read_ ## x ## h, read_## x, read_## x ## d
-#define W(x) write_ ## x ## b, write_ ## x ## h, write_ ## x, write_ ## x ## d
+
+int read_rdram(uint32_t address, uint32_t* value)
+{
+    return read_rdram_ram(&g_ri, address, value);
+}
+
+int write_rdram(uint32_t address, uint32_t value, uint32_t mask)
+{
+    return write_rdram_ram(&g_ri, address, value, mask);
+}
+
+static int read_rdramreg(uint32_t address, uint32_t* value)
+{
+    return read_rdram_regs(&g_ri, address, value);
+}
+
+static int write_rdramreg(uint32_t address, uint32_t value, uint32_t mask)
+{
+    return write_rdram_regs(&g_ri, address, value, mask);
+}
+
+
+
+static int read_rsp_memory(uint32_t address, uint32_t* value)
+{
+    return read_rsp_mem(&g_sp, address, value);
+}
+
+static int write_rsp_memory(uint32_t address, uint32_t value, uint32_t mask)
+{
+    return write_rsp_mem(&g_sp, address, value, mask);
+}
+
+static int read_rsp_reg(uint32_t address, uint32_t* value)
+{
+    return read_rsp_regs(&g_sp, address, value);
+}
+
+static int write_rsp_reg(uint32_t address, uint32_t value, uint32_t mask)
+{
+    return write_rsp_regs(&g_sp, address, value, mask);
+}
+
+static int read_rsp(uint32_t address, uint32_t* value)
+{
+    return read_rsp_regs2(&g_sp, address, value);
+}
+
+static int write_rsp(uint32_t address, uint32_t value, uint32_t mask)
+{
+   return  write_rsp_regs2(&g_sp, address, value, mask);
+}
+
+
+
+static int read_dp(uint32_t address, uint32_t* value)
+{
+    return read_dpc_regs(&g_dp, address, value);
+}
+
+static int write_dp(uint32_t address, uint32_t value, uint32_t mask)
+{
+    return write_dpc_regs(&g_dp, address, value, mask);
+}
+
+static int read_dps(uint32_t address, uint32_t* value)
+{
+    return read_dps_regs(&g_dp, address, value);
+}
+
+static int write_dps(uint32_t address, uint32_t value, uint32_t mask)
+{
+    return write_dps_regs(&g_dp, address, value, mask);
+}
+
+int read_rdramFB(uint32_t address, uint32_t* value)
+{
+    pre_framebuffer_read(&g_dp, address);
+    return read_rdram(address, value);
+}
+
+int write_rdramFB(uint32_t address, uint32_t value, uint32_t mask)
+{
+    pre_framebuffer_write(&g_dp, address, 4);
+    return write_rdram(address, value, mask);
+}
+
+
+
+static int read_mi(uint32_t address, uint32_t* value)
+{
+    return read_mi_regs(&g_mi, address, value);
+}
+
+static int write_mi(uint32_t address, uint32_t value, uint32_t mask)
+{
+    return write_mi_regs(&g_mi, address, value, mask);
+}
+
+
+
+static int read_vi(uint32_t address, uint32_t* value)
+{
+    return read_vi_regs(&g_vi, address, value);
+}
+
+static int write_vi(uint32_t address, uint32_t value, uint32_t mask)
+{
+    return write_vi_regs(&g_vi, address, value, mask);
+}
+
+
+
+static int read_ai(uint32_t address, uint32_t* value)
+{
+    return read_ai_regs(&g_ai, address, value);
+}
+
+static int write_ai(uint32_t address, uint32_t value, uint32_t mask)
+{
+    return write_ai_regs(&g_ai, address, value, mask);
+}
+
+
+
+static int read_pi(uint32_t address, uint32_t* value)
+{
+    return read_pi_regs(&g_pi, address, value);
+}
+
+static int write_pi(uint32_t address, uint32_t value, uint32_t mask)
+{
+    return write_pi_regs(&g_pi, address, value, mask);
+}
+
+
+
+static int read_ri(uint32_t address, uint32_t* value)
+{
+    return read_ri_regs(&g_ri, address, value);
+}
+
+static int write_ri(uint32_t address, uint32_t value, uint32_t mask)
+{
+    return write_ri_regs(&g_ri, address, value, mask);
+}
+
+
+
+static int read_si(uint32_t address, uint32_t* value)
+{
+    return read_si_regs(&g_si, address, value);
+}
+
+static int write_si(uint32_t address, uint32_t value, uint32_t mask)
+{
+    return write_si_regs(&g_si, address, value, mask);
+}
+
+
+
+static int read_flashram_status(uint32_t address, uint32_t* value)
+{
+    return pi_read_flashram_status(&g_pi, address, value);
+}
+
+static int write_flashram_dummy(uint32_t address, uint32_t value, uint32_t mask)
+{
+    return 0;
+}
+
+static int write_flashram_command(uint32_t address, uint32_t value, uint32_t mask)
+{
+    return pi_write_flashram_command(&g_pi, address, value, mask);
+}
+
+
+
+
+static int read_rom(uint32_t address, uint32_t* value)
+{
+    return read_cart_rom(&g_pi, address, value);
+}
+
+static int write_rom(uint32_t address, uint32_t value, uint32_t mask)
+{
+    return write_cart_rom(&g_pi, address, value, mask);
+}
+
+
+
+static int read_pif(uint32_t address, uint32_t* value)
+{
+    return read_pif_ram(&g_si, address, value);
+}
+
+static int write_pif(uint32_t address, uint32_t value, uint32_t mask)
+{
+    return write_pif_ram(&g_si, address, value, mask);
+}
+
+
+
+#define R(x) read_ ## x
+#define W(x) write_ ## x
 #define X(x) R(x), W(x)
 
 int init_memory(void)
@@ -263,7 +432,7 @@ int init_memory(void)
     for(i = 0; i < (rom_size >> 16); ++i)
     {
         map_region(0x9000+i, R(rom), W(nothing));
-        map_region(0xb000+i, R(rom), write_nothingb, write_nothingh, write_rom, write_nothingd);
+        map_region(0xb000+i, X(rom));
     }
     for(i = (rom_size >> 16); i < 0xfc0; ++i)
     {
@@ -298,1172 +467,39 @@ void free_memory(void)
 {
 }
 
-void read_nothing(void)
-{
-    if (address == 0xa5000508) *rdword = 0xFFFFFFFF;
-    else *rdword = 0;
-}
-
-void read_nothingb(void)
-{
-    *rdword = 0;
-}
-
-void read_nothingh(void)
-{
-    *rdword = 0;
-}
-
-void read_nothingd(void)
-{
-    *rdword = 0;
-}
-
-void write_nothing(void)
-{
-}
-
-void write_nothingb(void)
-{
-}
-
-void write_nothingh(void)
-{
-}
-
-void write_nothingd(void)
-{
-}
-
-void read_nomem(void)
-{
-    address = virtual_to_physical_address(address,0);
-    if (address == 0x00000000) return;
-    read_word_in_memory();
-}
-
-void read_nomemb(void)
-{
-    address = virtual_to_physical_address(address,0);
-    if (address == 0x00000000) return;
-    read_byte_in_memory();
-}
-
-void read_nomemh(void)
-{
-    address = virtual_to_physical_address(address,0);
-    if (address == 0x00000000) return;
-    read_hword_in_memory();
-}
-
-void read_nomemd(void)
-{
-    address = virtual_to_physical_address(address,0);
-    if (address == 0x00000000) return;
-    read_dword_in_memory();
-}
-
-void write_nomem(void)
-{
-    if (r4300emu != CORE_PURE_INTERPRETER && !invalid_code[address>>12])
-        if (blocks[address>>12]->block[(address&0xFFF)/4].ops !=
-            current_instruction_table.NOTCOMPILED)
-            invalid_code[address>>12] = 1;
-    address = virtual_to_physical_address(address,1);
-    if (address == 0x00000000) return;
-    write_word_in_memory();
-}
-
-void write_nomemb(void)
-{
-    if (r4300emu != CORE_PURE_INTERPRETER && !invalid_code[address>>12])
-        if (blocks[address>>12]->block[(address&0xFFF)/4].ops != 
-            current_instruction_table.NOTCOMPILED)
-            invalid_code[address>>12] = 1;
-    address = virtual_to_physical_address(address,1);
-    if (address == 0x00000000) return;
-    write_byte_in_memory();
-}
-
-void write_nomemh(void)
-{
-    if (r4300emu != CORE_PURE_INTERPRETER && !invalid_code[address>>12])
-        if (blocks[address>>12]->block[(address&0xFFF)/4].ops != 
-            current_instruction_table.NOTCOMPILED)
-            invalid_code[address>>12] = 1;
-    address = virtual_to_physical_address(address,1);
-    if (address == 0x00000000) return;
-    write_hword_in_memory();
-}
-
-void write_nomemd(void)
-{
-    if (r4300emu != CORE_PURE_INTERPRETER && !invalid_code[address>>12])
-        if (blocks[address>>12]->block[(address&0xFFF)/4].ops != 
-            current_instruction_table.NOTCOMPILED)
-            invalid_code[address>>12] = 1;
-    address = virtual_to_physical_address(address,1);
-    if (address == 0x00000000) return;
-    write_dword_in_memory();
-}
-
-void read_rdram(void)
-{
-    uint32_t value;
-
-    read_rdram_ram(&g_ri, address, &value);
-    *rdword = value;
-}
-
-void read_rdramb(void)
-{
-    uint32_t value;
-    unsigned shift = bshift(address);
-
-    read_rdram_ram(&g_ri, address, &value);
-    *rdword = (value >> shift) & 0xff;
-}
-
-void read_rdramh(void)
-{
-    uint32_t value;
-    unsigned shift = hshift(address);
-
-    read_rdram_ram(&g_ri, address, &value);
-    *rdword = (value >> shift) & 0xffff;
-}
-
-void read_rdramd(void)
-{
-    uint32_t w[2];
-
-    read_rdram_ram(&g_ri, address    , &w[0]);
-    read_rdram_ram(&g_ri, address + 4, &w[1]);
-
-    *rdword = ((uint64_t)w[0] << 32) | w[1];
-}
-
-void read_rdramFB(void)
-{
-    pre_framebuffer_read(&g_dp, address);
-    read_rdram();
-}
-
-void read_rdramFBb(void)
-{
-    pre_framebuffer_read(&g_dp, address);
-    read_rdramb();
-}
-
-void read_rdramFBh(void)
-{
-    pre_framebuffer_read(&g_dp, address);
-    read_rdramh();
-}
-
-void read_rdramFBd(void)
-{
-    pre_framebuffer_read(&g_dp, address);
-    read_rdramd();
-}
-
-void write_rdram(void)
-{
-    write_rdram_ram(&g_ri, address, word, ~0U);
-}
-
-void write_rdramb(void)
-{
-    unsigned shift = bshift(address);
-    uint32_t value = (uint32_t)cpu_byte << shift;
-    uint32_t mask = (uint32_t)0xff << shift;
-
-    write_rdram_ram(&g_ri, address, value, mask);
-}
-
-void write_rdramh(void)
-{
-    unsigned shift = hshift(address);
-    uint32_t value = (uint32_t)hword << shift;
-    uint32_t mask = (uint32_t)0xffff << shift;
-
-    write_rdram_ram(&g_ri, address, value, mask);
-}
-
-void write_rdramd(void)
-{
-    write_rdram_ram(&g_ri, address    , dword >> 32, ~0U);
-    write_rdram_ram(&g_ri, address + 4, dword      , ~0U);
-}
-
-void write_rdramFB(void)
-{
-    pre_framebuffer_write(&g_dp, address, 4);
-    write_rdram();
-}
-
-void write_rdramFBb(void)
-{
-    pre_framebuffer_write(&g_dp, address^S8, 1);
-    write_rdramb();
-}
-
-void write_rdramFBh(void)
-{
-    pre_framebuffer_write(&g_dp, address^S16, 2);
-    write_rdramh();
-}
-
-void write_rdramFBd(void)
-{
-    pre_framebuffer_write(&g_dp, address, 8);
-    write_rdramd();
-}
-
-void read_rdramreg(void)
-{
-    uint32_t value;
-
-    read_rdram_regs(&g_ri, address, &value);
-    *rdword = value;
-}
-
-void read_rdramregb(void)
-{
-    uint32_t value;
-    unsigned shift = bshift(address);
-
-    read_rdram_regs(&g_ri, address, &value);
-    *rdword = (value >> shift) & 0xff;
-}
-
-void read_rdramregh(void)
-{
-    uint32_t value;
-    unsigned shift = hshift(address);
-
-    read_rdram_regs(&g_ri, address, &value);
-    *rdword = (value >> shift) & 0xffff;
-}
-
-void read_rdramregd(void)
-{
-    uint32_t w[2];
-
-    read_rdram_regs(&g_ri, address    , &w[0]);
-    read_rdram_regs(&g_ri, address + 4, &w[1]);
-
-    *rdword = ((uint64_t)w[0] << 32) | w[1];
-}
-
-void write_rdramreg(void)
-{
-    write_rdram_regs(&g_ri, address, word, ~0U);
-}
-
-void write_rdramregb(void)
-{
-    unsigned shift = bshift(address);
-    uint32_t value = (uint32_t)cpu_byte << shift;
-    uint32_t mask = (uint32_t)0xff << shift;
-
-    write_rdram_regs(&g_ri, address, value, mask);
-}
-
-void write_rdramregh(void)
-{
-    unsigned shift = hshift(address);
-    uint32_t value = (uint32_t)hword << shift;
-    uint32_t mask = (uint32_t)0xffff << shift;
-
-    write_rdram_regs(&g_ri, address, value, mask);
-}
-
-void write_rdramregd(void)
-{
-    write_rdram_regs(&g_ri, address    , dword >> 32, ~0U);
-    write_rdram_regs(&g_ri, address + 4, dword      , ~0U);
-}
-
-void read_rsp_memory(void)
-{
-    uint32_t value;
-
-    read_rsp_mem(&g_sp, address, &value);
-    *rdword = value;
-}
-
-void read_rsp_memoryb(void)
-{
-    uint32_t value;
-    unsigned shift = bshift(address);
-
-    read_rsp_mem(&g_sp, address, &value);
-    *rdword = (value >> shift) & 0xff;
-}
-
-void read_rsp_memoryh(void)
-{
-    uint32_t value;
-    unsigned shift = hshift(address);
-
-    read_rsp_mem(&g_sp, address, &value);
-    *rdword = (value >> shift) & 0xffff;
-}
-
-void read_rsp_memoryd(void)
-{
-    uint32_t w[2];
-
-    read_rsp_mem(&g_sp, address    , &w[0]);
-    read_rsp_mem(&g_sp, address + 4, &w[1]);
-
-    *rdword = ((uint64_t)w[0] << 32) | w[1];
-}
-
-void write_rsp_memory(void)
-{
-    write_rsp_mem(&g_sp, address, word, ~0U);
-}
-
-void write_rsp_memoryb(void)
-{
-    unsigned shift = bshift(address);
-    uint32_t value = (uint32_t)cpu_byte << shift;
-    uint32_t mask = (uint32_t)0xff << shift;
-
-    write_rsp_mem(&g_sp, address, value, mask);
-}
-
-void write_rsp_memoryh(void)
-{
-    unsigned shift = hshift(address);
-    uint32_t value = (uint32_t)hword << shift;
-    uint32_t mask = (uint32_t)0xffff << shift;
-
-    write_rsp_mem(&g_sp, address, value, mask);
-}
-
-void write_rsp_memoryd(void)
-{
-    write_rsp_mem(&g_sp, address    , dword >> 32, ~0U);
-    write_rsp_mem(&g_sp, address + 4, dword      , ~0U);
-}
-
-void read_rsp_reg(void)
-{
-    uint32_t value;
-
-    read_rsp_regs(&g_sp, address, &value);
-    *rdword = value;
-}
-
-void read_rsp_regb(void)
-{
-    uint32_t value;
-    unsigned shift = bshift(address);
-
-    read_rsp_regs(&g_sp, address, &value);
-    *rdword = (value >> shift) & 0xff;
-}
-
-void read_rsp_regh(void)
-{
-    uint32_t value;
-    unsigned shift = hshift(address);
-
-    read_rsp_regs(&g_sp, address, &value);
-    *rdword = (value >> shift) & 0xffff;
-}
-
-void read_rsp_regd(void)
-{
-    uint32_t w[2];
-
-    read_rsp_regs(&g_sp, address    , &w[0]);
-    read_rsp_regs(&g_sp, address + 4, &w[1]);
-
-    *rdword = ((uint64_t)w[0] << 32) | w[1];
-}
-
-void write_rsp_reg(void)
-{
-    write_rsp_regs(&g_sp, address, word, ~0U);
-}
-
-void write_rsp_regb(void)
-{
-    unsigned shift = bshift(address);
-    uint32_t value = (uint32_t)cpu_byte << shift;
-    uint32_t mask = (uint32_t)0xff << shift;
-
-    write_rsp_regs(&g_sp, address, value, mask);
-}
-
-void write_rsp_regh(void)
-{
-    unsigned shift = hshift(address);
-    uint32_t value = (uint32_t)hword << shift;
-    uint32_t mask = (uint32_t)0xffff << shift;
-
-    write_rsp_regs(&g_sp, address, value, mask);
-}
-
-void write_rsp_regd(void)
-{
-    write_rsp_regs(&g_sp, address    , dword >> 32, ~0U);
-    write_rsp_regs(&g_sp, address + 4, dword      , ~0U);
-}
-
-void read_rsp(void)
-{
-    uint32_t value;
-
-    read_rsp_regs2(&g_sp, address, &value);
-    *rdword = value;
-}
-
-void read_rspb(void)
-{
-    uint32_t value;
-    unsigned shift = bshift(address);
-
-    read_rsp_regs2(&g_sp, address, &value);
-    *rdword = (value >> shift) & 0xff;
-}
-
-void read_rsph(void)
-{
-    uint32_t value;
-    unsigned shift = hshift(address);
-
-    read_rsp_regs2(&g_sp, address, &value);
-    *rdword = (value >> shift) & 0xffff;
-}
-
-void read_rspd(void)
-{
-    uint32_t w[2];
-
-    read_rsp_regs2(&g_sp, address    , &w[0]);
-    read_rsp_regs2(&g_sp, address + 4, &w[1]);
-
-    *rdword = ((uint64_t)w[0] << 32) | w[1];
-}
-
-void write_rsp(void)
-{
-    write_rsp_regs2(&g_sp, address, word, ~0U);
-}
-
-void write_rspb(void)
-{
-    unsigned shift = bshift(address);
-    uint32_t value = (uint32_t)cpu_byte << shift;
-    uint32_t mask = (uint32_t)0xff << shift;
-
-    write_rsp_regs2(&g_sp, address, value, mask);
-}
-
-void write_rsph(void)
-{
-    unsigned shift = hshift(address);
-    uint32_t value = (uint32_t)hword << shift;
-    uint32_t mask = (uint32_t)0xffff << shift;
-
-    write_rsp_regs2(&g_sp, address, value, mask);
-}
-
-void write_rspd(void)
-{
-    write_rsp_regs2(&g_sp, address    , dword >> 32, ~0U);
-    write_rsp_regs2(&g_sp, address + 4, dword      , ~0U);
-}
-
-void read_dp(void)
-{
-    uint32_t value;
-
-    read_dpc_regs(&g_dp, address, &value);
-    *rdword = value;
-}
-
-void read_dpb(void)
-{
-    uint32_t value;
-    unsigned shift = bshift(address);
-
-    read_dpc_regs(&g_dp, address, &value);
-    *rdword = (value >> shift) & 0xff;
-}
-
-void read_dph(void)
-{
-    uint32_t value;
-    unsigned shift = hshift(address);
-
-    read_dpc_regs(&g_dp, address, &value);
-    *rdword = (value >> shift) & 0xffff;
-}
-
-void read_dpd(void)
-{
-    uint32_t w[2];
-
-    read_dpc_regs(&g_dp, address    , &w[0]);
-    read_dpc_regs(&g_dp, address + 4, &w[1]);
-
-    *rdword = ((uint64_t)w[0] << 32) | w[1];
-}
-
-void write_dp(void)
-{
-    write_dpc_regs(&g_dp, address, word, ~0U);
-}
-
-void write_dpb(void)
-{
-    unsigned shift = bshift(address);
-    uint32_t value = (uint32_t)cpu_byte << shift;
-    uint32_t mask = (uint32_t)0xff << shift;
-
-    write_dpc_regs(&g_dp, address, value, mask);
-}
-
-void write_dph(void)
-{
-    unsigned shift = hshift(address);
-    uint32_t value = (uint32_t)hword << shift;
-    uint32_t mask = (uint32_t)0xffff << shift;
-
-    write_dpc_regs(&g_dp, address, value, mask);
-}
-
-void write_dpd(void)
-{
-    write_dpc_regs(&g_dp, address    , dword >> 32, ~0U);
-    write_dpc_regs(&g_dp, address + 4, dword      , ~0U);
-}
-
-void read_dps(void)
-{
-    uint32_t value;
-
-    read_dps_regs(&g_dp, address, &value);
-    *rdword = value;
-}
-
-void read_dpsb(void)
-{
-    uint32_t value;
-    unsigned shift = bshift(address);
-
-    read_dps_regs(&g_dp, address, &value);
-    *rdword = (value >> shift) & 0xff;
-}
-
-void read_dpsh(void)
-{
-    uint32_t value;
-    unsigned shift = hshift(address);
-
-    read_dps_regs(&g_dp, address, &value);
-    *rdword = (value >> shift) & 0xffff;
-}
-
-void read_dpsd(void)
-{
-    uint32_t w[2];
-
-    read_dps_regs(&g_dp, address    , &w[0]);
-    read_dps_regs(&g_dp, address + 4, &w[1]);
-
-    *rdword = ((uint64_t)w[0] << 32) | w[1];
-}
-
-void write_dps(void)
-{
-    write_dps_regs(&g_dp, address, word, ~0U);
-}
-
-void write_dpsb(void)
-{
-    unsigned shift = bshift(address);
-    uint32_t value = (uint32_t)cpu_byte << shift;
-    uint32_t mask = (uint32_t)0xff << shift;
-
-    write_dps_regs(&g_dp, address, value, mask);
-}
-
-void write_dpsh(void)
-{
-    unsigned shift = hshift(address);
-    uint32_t value = (uint32_t)hword << shift;
-    uint32_t mask = (uint32_t)0xffff << shift;
-
-    write_dps_regs(&g_dp, address, value, mask);
-}
 
-void write_dpsd(void)
-{
-    write_dps_regs(&g_dp, address    , dword >> 32, ~0U);
-    write_dps_regs(&g_dp, address + 4, dword      , ~0U);
-}
-
-void read_mi(void)
-{
-    uint32_t value;
-
-    read_mi_regs(&g_mi, address, &value);
-    *rdword = value;
-}
-
-void read_mib(void)
-{
-    uint32_t value;
-    unsigned shift = bshift(address);
-
-    read_mi_regs(&g_mi, address, &value);
-    *rdword = (value >> shift) & 0xff;
-}
-
-void read_mih(void)
-{
-    uint32_t value;
-    unsigned shift = hshift(address);
-
-    read_mi_regs(&g_mi, address, &value);
-    *rdword = (value >> shift) & 0xffff;
-}
-
-void read_mid(void)
-{
-    uint32_t w[2];
-
-    read_mi_regs(&g_mi, address    , &w[0]);
-    read_mi_regs(&g_mi, address + 4, &w[1]);
-
-    *rdword = ((uint64_t)w[0] << 32) | w[1];
-}
-
-void write_mi(void)
-{
-    write_mi_regs(&g_mi, address, word, ~0U);
-}
-
-void write_mib(void)
-{
-    unsigned shift = bshift(address);
-    uint32_t value = (uint32_t)cpu_byte << shift;
-    uint32_t mask = (uint32_t)0xff << shift;
-
-    write_mi_regs(&g_mi, address, value, mask);
-}
-
-void write_mih(void)
-{
-    unsigned shift = hshift(address);
-    uint32_t value = (uint32_t)hword << shift;
-    uint32_t mask = (uint32_t)0xffff << shift;
-
-    write_mi_regs(&g_mi, address, value, mask);
-}
-
-void write_mid(void)
-{
-    write_mi_regs(&g_mi, address    , dword >> 32, ~0U);
-    write_mi_regs(&g_mi, address + 4, dword      , ~0U);
-}
-
-void read_vi(void)
-{
-    uint32_t value;
-
-    read_vi_regs(&g_vi, address, &value);
-    *rdword = value;
-}
-
-void read_vib(void)
-{
-    uint32_t value;
-    unsigned shift = bshift(address);
-
-    read_vi_regs(&g_vi, address, &value);
-    *rdword = (value >> shift) & 0xff;
-}
-
-void read_vih(void)
-{
-    uint32_t value;
-    unsigned shift = hshift(address);
-
-    read_vi_regs(&g_vi, address, &value);
-    *rdword = (value >> shift) & 0xffff;
-}
-
-void read_vid(void)
-{
-    uint32_t w[2];
-
-    read_vi_regs(&g_vi, address    , &w[0]);
-    read_vi_regs(&g_vi, address + 4, &w[1]);
-
-    *rdword = ((uint64_t)w[0] << 32) | w[1];
-}
-
-void write_vi(void)
-{
-    write_vi_regs(&g_vi, address, word, ~0U);
-}
-
-void write_vib(void)
-{
-    unsigned shift = bshift(address);
-    uint32_t value = (uint32_t)cpu_byte << shift;
-    uint32_t mask = (uint32_t)0xff << shift;
-
-    write_vi_regs(&g_vi, address, value, mask);
-}
-
-void write_vih(void)
-{
-    unsigned shift = hshift(address);
-    uint32_t value = (uint32_t)hword << shift;
-    uint32_t mask = (uint32_t)0xffff << shift;
-
-    write_vi_regs(&g_vi, address, value, mask);
-}
-
-void write_vid(void)
-{
-    write_vi_regs(&g_vi, address    , dword >> 32, ~0U);
-    write_vi_regs(&g_vi, address + 4, dword      , ~0U);
-}
-
-void read_ai(void)
-{
-    uint32_t value;
-
-    read_ai_regs(&g_ai, address, &value);
-    *rdword = value;
-}
-
-void read_aib(void)
-{
-    uint32_t value;
-    unsigned shift = bshift(address);
-
-    read_ai_regs(&g_ai, address, &value);
-    *rdword = (value >> shift) & 0xff;
-}
-
-void read_aih(void)
-{
-    uint32_t value;
-    unsigned shift = hshift(address);
-
-    read_ai_regs(&g_ai, address, &value);
-    *rdword = (value >> shift) & 0xffff;
-}
-
-void read_aid(void)
-{
-    uint32_t w[2];
-
-    read_ai_regs(&g_ai, address    , &w[0]);
-    read_ai_regs(&g_ai, address + 4, &w[1]);
-
-    *rdword = ((uint64_t)w[0] << 32) | w[1];
-}
-
-void write_ai(void)
-{
-    write_ai_regs(&g_ai, address, word, ~0U);
-}
-
-void write_aib(void)
-{
-    unsigned shift = bshift(address);
-    uint32_t value = (uint32_t)cpu_byte << shift;
-    uint32_t mask = (uint32_t)0xff << shift;
-
-    write_ai_regs(&g_ai, address, value, mask);
-}
-
-void write_aih(void)
-{
-    unsigned shift = hshift(address);
-    uint32_t value = (uint32_t)hword << shift;
-    uint32_t mask = (uint32_t)0xffff << shift;
-
-    write_ai_regs(&g_ai, address, value, mask);
-}
-
-void write_aid(void)
-{
-    write_ai_regs(&g_ai, address    , dword >> 32, ~0U);
-    write_ai_regs(&g_ai, address + 4, dword      , ~0U);
-}
-
-void read_pi(void)
-{
-    uint32_t value;
-
-    read_pi_regs(&g_pi, address, &value);
-    *rdword = value;
-}
-
-void read_pib(void)
-{
-    uint32_t value;
-    unsigned shift = bshift(address);
-
-    read_pi_regs(&g_pi, address, &value);
-    *rdword = (value >> shift) & 0xff;
-}
-
-void read_pih(void)
-{
-    uint32_t value;
-    unsigned shift = hshift(address);
-
-    read_pi_regs(&g_pi, address, &value);
-    *rdword = (value >> shift) & 0xffff;
-}
-
-void read_pid(void)
-{
-    uint32_t w[2];
-
-    read_pi_regs(&g_pi, address    , &w[0]);
-    read_pi_regs(&g_pi, address + 4, &w[1]);
-
-    *rdword = ((uint64_t)w[0] << 32) | w[1];
-}
-
-void write_pi(void)
-{
-    write_pi_regs(&g_pi, address, word, ~0U);
-}
-
-void write_pib(void)
-{
-    unsigned shift = bshift(address);
-    uint32_t value = (uint32_t)cpu_byte << shift;
-    uint32_t mask = (uint32_t)0xff << shift;
-
-    write_pi_regs(&g_pi, address, value, mask);
-}
-
-void write_pih(void)
-{
-    unsigned shift = hshift(address);
-    uint32_t value = (uint32_t)hword << shift;
-    uint32_t mask = (uint32_t)0xffff << shift;
-
-    write_pi_regs(&g_pi, address, value, mask);
-}
-
-void write_pid(void)
-{
-    write_pi_regs(&g_pi, address    , dword >> 32, ~0U);
-    write_pi_regs(&g_pi, address + 4, dword      , ~0U);
-}
-
-void read_ri(void)
-{
-    uint32_t value;
 
-    read_ri_regs(&g_ri, address, &value);
-    *rdword = value;
-}
-
-void read_rib(void)
-{
-    uint32_t value;
-    unsigned shift = bshift(address);
-
-    read_ri_regs(&g_ri, address, &value);
-    *rdword = (value >> shift) & 0xff;
-}
-
-void read_rih(void)
-{
-    uint32_t value;
-    unsigned shift = hshift(address);
-
-    read_ri_regs(&g_ri, address, &value);
-    *rdword = (value >> shift) & 0xffff;
-}
-
-void read_rid(void)
-{
-    uint32_t w[2];
-
-    read_ri_regs(&g_ri, address    , &w[0]);
-    read_ri_regs(&g_ri, address + 4, &w[1]);
-
-    *rdword = ((uint64_t)w[0] << 32) | w[1];
-}
-
-void write_ri(void)
-{
-    write_ri_regs(&g_ri, address, word, ~0U);
-}
-
-void write_rib(void)
-{
-    unsigned shift = bshift(address);
-    uint32_t value = (uint32_t)cpu_byte << shift;
-    uint32_t mask = (uint32_t)0xff << shift;
-
-    write_ri_regs(&g_ri, address, value, mask);
-}
-
-void write_rih(void)
-{
-    unsigned shift = hshift(address);
-    uint32_t value = (uint32_t)hword << shift;
-    uint32_t mask = (uint32_t)0xffff << shift;
-
-    write_ri_regs(&g_ri, address, value, mask);
-}
-
-void write_rid(void)
-{
-    write_ri_regs(&g_ri, address    , dword >> 32, ~0U);
-    write_ri_regs(&g_ri, address + 4, dword      , ~0U);
-}
-
-void read_si(void)
-{
-    uint32_t value;
-
-    read_si_regs(&g_si, address, &value);
-    *rdword = value;
-}
-
-void read_sib(void)
-{
-    uint32_t value;
-    unsigned shift = bshift(address);
-
-    read_si_regs(&g_si, address, &value);
-    *rdword = (value >> shift) & 0xff;
-}
-
-void read_sih(void)
-{
-    uint32_t value;
-    unsigned shift = hshift(address);
-
-    read_si_regs(&g_si, address, &value);
-    *rdword = (value >> shift) & 0xffff;
-}
-
-void read_sid(void)
-{
-    uint32_t w[2];
-
-    read_si_regs(&g_si, address    , &w[0]);
-    read_si_regs(&g_si, address + 4, &w[1]);
-
-    *rdword = ((uint64_t)w[0] << 32) | w[1];
-}
-
-void write_si(void)
-{
-    write_si_regs(&g_si, address, word, ~0U);
-}
-
-void write_sib(void)
-{
-    unsigned shift = bshift(address);
-    uint32_t value = (uint32_t)cpu_byte << shift;
-    uint32_t mask = (uint32_t)0xff << shift;
-
-    write_si_regs(&g_si, address, value, mask);
-}
-
-void write_sih(void)
-{
-    unsigned shift = hshift(address);
-    uint32_t value = (uint32_t)hword << shift;
-    uint32_t mask = (uint32_t)0xffff << shift;
-
-    write_si_regs(&g_si, address, value, mask);
-}
-
-void write_sid(void)
-{
-    write_si_regs(&g_si, address    , dword >> 32, ~0U);
-    write_si_regs(&g_si, address + 4, dword      , ~0U);
-}
-
-void read_flashram_status(void)
-{
-    uint32_t value;
-
-    if (pi_read_flashram_status(&g_pi, address, &value))
-        *rdword = value;
-}
-
-void read_flashram_statusb(void)
+void map_region_r(uint16_t region, int (*readfn)(uint32_t, uint32_t*))
 {
-    DebugMessage(M64MSG_ERROR, "read_flashram_statusb() not implemented");
+    readmem[region] = readfn;
 }
 
-void read_flashram_statush(void)
+void map_region_w(uint16_t region, int (writefn)(uint32_t, uint32_t, uint32_t))
 {
-    DebugMessage(M64MSG_ERROR, "read_flashram_statush() not implemented");
+    writemem[region] = writefn;
 }
 
-void read_flashram_statusd(void)
+void map_region(uint16_t region,
+        int (*readfn)(uint32_t, uint32_t*),
+        int (*writefn)(uint32_t, uint32_t, uint32_t))
 {
-    DebugMessage(M64MSG_ERROR, "read_flashram_statusd() not implemented");
+    map_region_r(region, readfn);
+    map_region_w(region, writefn);
 }
 
-void write_flashram_dummy(void)
-{
-}
-
-void write_flashram_dummyb(void)
-{
-}
-
-void write_flashram_dummyh(void)
-{
-}
-
-void write_flashram_dummyd(void)
-{
-}
-
-void write_flashram_command(void)
-{
-    pi_write_flashram_command(&g_pi, address, word, ~0U);
-}
-
-void write_flashram_commandb(void)
-{
-    DebugMessage(M64MSG_ERROR, "write_flashram_commandb() not implemented");
-}
-
-void write_flashram_commandh(void)
-{
-    DebugMessage(M64MSG_ERROR, "write_flashram_commandh() not implemented");
-}
-
-void write_flashram_commandd(void)
-{
-    DebugMessage(M64MSG_ERROR, "write_flashram_commandd() not implemented");
-}
-
-void read_rom(void)
-{
-    uint32_t value;
-
-    read_cart_rom(&g_pi, address, &value);
-    *rdword = value;
-}
-
-void read_romb(void)
-{
-    uint32_t value;
-    unsigned shift = bshift(address);
-
-    read_cart_rom(&g_pi, address, &value);
-    *rdword = (value >> shift) & 0xff;
-}
-
-void read_romh(void)
-{
-    uint32_t value;
-    unsigned shift = hshift(address);
-
-    read_cart_rom(&g_pi, address, &value);
-    *rdword = (value >> shift) & 0xffff;
-}
-
-void read_romd(void)
-{
-    uint32_t w[2];
-
-    read_cart_rom(&g_pi, address    , &w[0]);
-    read_cart_rom(&g_pi, address + 4, &w[1]);
-
-    *rdword = ((uint64_t)w[0] << 32) | w[1];
-}
-
-void write_rom(void)
-{
-    write_cart_rom(&g_pi, address, word, ~0U);
-}
-
-void read_pif(void)
-{
-    uint32_t value;
-
-    read_pif_ram(&g_si, address, &value);
-    *rdword = value;
-}
-
-void read_pifb(void)
-{
-    uint32_t value;
-    unsigned shift = bshift(address);
-
-    read_pif_ram(&g_si, address, &value);
-    *rdword = (value >> shift) & 0xff;
-}
-
-void read_pifh(void)
-{
-    uint32_t value;
-    unsigned shift = hshift(address);
-
-    read_pif_ram(&g_si, address, &value);
-    *rdword = (value >> shift) & 0xffff;
-}
-
-void read_pifd(void)
-{
-    uint32_t w[2];
-
-    read_pif_ram(&g_si, address    , &w[0]);
-    read_pif_ram(&g_si, address + 4, &w[1]);
 
-    *rdword = ((uint64_t)w[0] << 32) | w[1];
-}
 
-void write_pif(void)
+int read_word(uint32_t address, uint32_t* value)
 {
-    write_pif_ram(&g_si, address, word, ~0U);
+    return readmem[address >> 16](address, value);
 }
 
-void write_pifb(void)
+int write_word(uint32_t address, uint32_t value, uint32_t mask)
 {
-    unsigned shift = bshift(address);
-    uint32_t value = (uint32_t)cpu_byte << shift;
-    uint32_t mask = (uint32_t)0xff << shift;
-
-    write_pif_ram(&g_si, address, value, mask);
+    return writemem[address >> 16](address, value, mask);
 }
 
-void write_pifh(void)
-{
-    unsigned shift = hshift(address);
-    uint32_t value = (uint32_t)hword << shift;
-    uint32_t mask = (uint32_t)0xffff << shift;
-
-    write_pif_ram(&g_si, address, value, mask);
-}
 
-void write_pifd(void)
-{
-    write_pif_ram(&g_si, address    , dword >> 32, ~0U);
-    write_pif_ram(&g_si, address + 4, dword      , ~0U);
-}
 
 unsigned int *fast_mem_access(unsigned int address)
 {
@@ -1484,3 +520,4 @@ unsigned int *fast_mem_access(unsigned int address)
     else
         return NULL;
 }
+

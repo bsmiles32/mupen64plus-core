@@ -228,9 +228,6 @@ void pre_framebuffer_write(struct rdp_core* dp, uint32_t address, size_t size)
     }
 }
 
-#define R(x) read_ ## x ## b, read_ ## x ## h, read_## x, read_## x ## d
-#define W(x) write_ ## x ## b, write_ ## x ## h, write_ ## x, write_ ## x ## d
-
 void unprotect_framebuffers(struct rdp_core* dp)
 {
     if (gfx.fBGetFrameBufferInfo && gfx.fBRead && gfx.fBWrite &&
@@ -255,61 +252,45 @@ void unprotect_framebuffers(struct rdp_core* dp)
                     if (lookup_breakpoint(0x80000000 + j * 0x10000, 0x10000,
                                           M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_READ) != -1)
                     {
-                        map_region_r(0x8000+j,
-                                read_rdramb_break,
-                                read_rdramh_break,
-                                read_rdram_break,
-                                read_rdramd_break);
+                        map_region_r(0x8000+j, read_rdram_break);
                     }
                     else
                     {
 #endif
-                        map_region_r(0x8000+j, R(rdram));
+                        map_region_r(0x8000+j, read_rdram);
 #ifdef DBG
                     }
                     if (lookup_breakpoint(0xa0000000 + j * 0x10000, 0x10000,
                                           M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_READ) != -1)
                     {
-                        map_region_r(0xa000+j,
-                                read_rdramb_break,
-                                read_rdramh_break,
-                                read_rdram_break,
-                                read_rdramd_break);
+                        map_region_r(0xa000+j, read_rdram_break);
                     }
                     else
                     {
 #endif
-                        map_region_r(0xa000+j, R(rdram));
+                        map_region_r(0xa000+j, read_rdram);
 #ifdef DBG
                     }
                     if (lookup_breakpoint(0x80000000 + j * 0x10000, 0x10000,
                                           M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_WRITE) != -1)
                     {
-                        map_region_w(0x8000+j,
-                                write_rdramb_break,
-                                write_rdramh_break,
-                                write_rdram_break,
-                                write_rdramd_break);
+                        map_region_w(0x8000+j, write_rdram_break);
                     }
                     else
                     {
 #endif
-                        map_region_w(0x8000+j, W(rdram));
+                        map_region_w(0x8000+j, write_rdram);
 #ifdef DBG
                     }
                     if (lookup_breakpoint(0xa0000000 + j * 0x10000, 0x10000,
                                           M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_WRITE) != -1)
                     {
-                        map_region_w(0xa000+j,
-                                write_rdramb_break,
-                                write_rdramh_break,
-                                write_rdram_break,
-                                write_rdramd_break);
+                        map_region_w(0xa000+j, write_rdram_break);
                     }
                     else
                     {
 #endif
-                        map_region_w(0xa000+j, W(rdram));
+                        map_region_w(0xa000+j, write_rdram);
 #ifdef DBG
                     }
 #endif
@@ -346,61 +327,45 @@ void protect_framebuffers(struct rdp_core* dp)
                     if (lookup_breakpoint(0x80000000 + j * 0x10000, 0x10000,
                                           M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_READ) != -1)
                     {
-                        map_region_r(0x8000+j,
-                                read_rdramFBb_break,
-                                read_rdramFBh_break,
-                                read_rdramFB_break,
-                                read_rdramFBd_break);
+                        map_region_r(0x8000+j, read_rdramFB_break);
                     }
                     else
                     {
 #endif
-                        map_region_r(0x8000+j, R(rdramFB));
+                        map_region_r(0x8000+j, read_rdramFB);
 #ifdef DBG
                     }
                     if (lookup_breakpoint(0xa0000000 + j * 0x10000, 0x10000,
                                           M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_READ) != -1)
                     {
-                        map_region_r(0xa000+j,
-                                read_rdramFBb_break,
-                                read_rdramFBh_break,
-                                read_rdramFB_break,
-                                read_rdramFBd_break);
+                        map_region_r(0xa000+j, read_rdramFB_break);
                     }
                     else
                     {
 #endif
-                        map_region_r(0xa000+j, R(rdramFB));
+                        map_region_r(0xa000+j, read_rdramFB);
 #ifdef DBG
                     }
                     if (lookup_breakpoint(0x80000000 + j * 0x10000, 0x10000,
                                           M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_WRITE) != -1)
                     {
-                        map_region_w(0x8000+j,
-                                write_rdramFBb_break,
-                                write_rdramFBh_break,
-                                write_rdramFB_break,
-                                write_rdramFBd_break);
+                        map_region_w(0x8000+j, write_rdramFB_break);
                     }
                     else
                     {
 #endif
-                        map_region_w(0x8000+j, W(rdramFB));
+                        map_region_w(0x8000+j, write_rdramFB);
 #ifdef DBG
                     }
                     if (lookup_breakpoint(0xa0000000 + j * 0x10000, 0x10000,
                                           M64P_BKP_FLAG_ENABLED | M64P_BKP_FLAG_WRITE) != -1)
                     {
-                        map_region_w(0xa000+j,
-                                write_rdramFBb_break,
-                                write_rdramFBh_break,
-                                write_rdramFB_break,
-                                write_rdramFBd_break);
+                        map_region_w(0xa000+j, write_rdramFB_break);
                     }
                     else
                     {
 #endif
-                        map_region_w(0xa000+j, W(rdramFB));
+                        map_region_w(0xa000+j, write_rdramFB);
 #ifdef DBG
                     }
 #endif
