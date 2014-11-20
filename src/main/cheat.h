@@ -22,7 +22,7 @@
 #ifndef CHEAT_H
 #define CHEAT_H
 
-#include "api/m64p_types.h"
+struct m64p_cheat_code;
 
 #define ENTRY_BOOT 0
 #define ENTRY_VI 1
