@@ -64,38 +64,58 @@ static LIST_HEAD(active_cheats);
 static SDL_mutex *cheat_mutex = NULL;
 
 // private functions
+static inline unsigned int bshift(uint32_t address)
+{
+    return ((address & 3) ^ 3) << 3;
+}
+
+static inline unsigned int hshift(uint32_t address)
+{
+    return ((address & 2) ^ 2) << 3;
+}
+
 static unsigned short read_address_16bit(unsigned int address)
 {
-    return *(unsigned short *)(((unsigned char*)g_ri.ram + ((address & 0xFFFFFF)^S16)));
+    uint32_t w;
+    unsigned shift = hshift(address);
+    read_word(address, &w);
+    return (w >> shift) & 0xffff;
 }
 
 static unsigned char read_address_8bit(unsigned int address)
 {
-    return *(unsigned char *)(((unsigned char*)g_ri.ram + ((address & 0xFFFFFF)^S8)));
+    uint32_t w;
+    unsigned shift = bshift(address);
+    read_word(address, &w);
+    return (w >> shift) & 0xff;
 }
 
-static void update_address_16bit(unsigned int address, unsigned short new_value)
+static void update_address_16bit(unsigned int address, unsigned short value)
 {
-    *(unsigned short *)(((unsigned char*)g_ri.ram + ((address & 0xFFFFFF)^S16))) = new_value;
+    unsigned int shift = hshift(address);
+    uint32_t w = (uint32_t)value << shift;
+    uint32_t mask = (uint32_t)0xffff << shift;
+
+    write_word(address, w, mask);
 }
 
-static void update_address_8bit(unsigned int address, unsigned char new_value)
+static void update_address_8bit(unsigned int address, unsigned char value)
 {
-    *(unsigned char *)(((unsigned char*)g_ri.ram + ((address & 0xFFFFFF)^S8))) = new_value;
+    unsigned int shift = bshift(address);
+    uint32_t w = (uint32_t)value << shift;
+    uint32_t mask = (uint32_t)0xff << shift;
+
+    write_word(address, w, mask);
 }
 
 static int address_equal_to_8bit(unsigned int address, unsigned char value)
 {
-    unsigned char value_read;
-    value_read = *(unsigned char *)(((unsigned char*)g_ri.ram + ((address & 0xFFFFFF)^S8)));
-    return value_read == value;
+    return (read_address_8bit(address) == value);
 }
 
 static int address_equal_to_16bit(unsigned int address, unsigned short value)
 {
-    unsigned short value_read;
-    value_read = *(unsigned short *)(((unsigned char*)g_ri.ram + ((address & 0xFFFFFF)^S16)));
-    return value_read == value;
+    return (read_address_16bit(address) == value);
 }
 
 // individual application - returns 0 if we are supposed to skip the next cheat
