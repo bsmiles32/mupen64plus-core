@@ -22,7 +22,7 @@
 #ifndef M64P_RSP_CORE_H
 #define M64P_RSP_CORE_H
 
-#include "stdint.h"
+#include <stdint.h>
 
 struct rdp_core;
 struct mi_controller;

@@ -22,8 +22,8 @@
 #ifndef M64P_RDP_CORE_H
 #define M64P_RDP_CORE_H
 
-#include "stddef.h"
-#include "stdint.h"
+#include <stddef.h>
+#include <stdint.h>
 
 #include "api/m64p_plugin.h"
 
