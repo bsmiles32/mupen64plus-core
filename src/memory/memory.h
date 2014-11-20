@@ -37,13 +37,11 @@
 )
 #endif
 #define S8 3
-#define S16 2
 
 #else
 
 #define sl(mot) mot
 #define S8 0
-#define S16 0
 
 #endif
 
