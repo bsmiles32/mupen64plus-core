@@ -235,6 +235,33 @@ void add_interupt_event_count(int type, unsigned int count)
     }
 }
 
+void add_interupt_event_now(int type)
+{
+    struct node* event;
+
+    event = alloc_node(&q.pool);
+    if (event == NULL)
+    {
+        DebugMessage(M64MSG_ERROR, "Failed to allocate node for new interrupt event");
+        return;
+    }
+
+    event->data.count = next_interupt = g_cp0_regs[CP0_COUNT_REG];
+    event->data.type = type;
+
+    if (q.first == NULL)
+    {
+        q.first = event;
+        event->next = NULL;
+    }
+    else
+    {
+        event->next = q.first;
+        q.first = event;
+    }
+}
+
+
 static void remove_interupt_event(void)
 {
     struct node* e;
@@ -363,8 +390,6 @@ void init_interupt(void)
 
 void check_interupt(void)
 {
-    struct node* event;
-
     if (g_mi.regs[MI_INTR_REG] & g_mi.regs[MI_INTR_MASK_REG])
         g_cp0_regs[CP0_CAUSE_REG] = (g_cp0_regs[CP0_CAUSE_REG] | 0x400) & 0xFFFFFF83;
     else
@@ -372,28 +397,7 @@ void check_interupt(void)
     if ((g_cp0_regs[CP0_STATUS_REG] & 7) != 1) return;
     if (g_cp0_regs[CP0_STATUS_REG] & g_cp0_regs[CP0_CAUSE_REG] & 0xFF00)
     {
-        event = alloc_node(&q.pool);
-
-        if (event == NULL)
-        {
-            DebugMessage(M64MSG_ERROR, "Failed to allocate node for new interrupt event");
-            return;
-        }
-
-        event->data.count = next_interupt = g_cp0_regs[CP0_COUNT_REG];
-        event->data.type = CHECK_INT;
-
-        if (q.first == NULL)
-        {
-            q.first = event;
-            event->next = NULL;
-        }
-        else
-        {
-            event->next = q.first;
-            q.first = event;
-
-        }
+        add_interupt_event_now(CHECK_INT);
     }
 }
 

@@ -40,6 +40,7 @@ void translate_event_queue(unsigned int base);
 void remove_event(int type);
 void add_interupt_event_count(int type, unsigned int count);
 void add_interupt_event(int type, unsigned int delay);
+void add_interupt_event_now(int type);
 unsigned int get_event(int type);
 int get_next_event_type(void);
 
