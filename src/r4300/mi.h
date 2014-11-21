@@ -68,4 +68,7 @@ int read_mi_regs(struct mi_controller* mi,
                  uint32_t address, uint32_t* value);
 int write_mi_regs(struct mi_controller* mi,
                   uint32_t address, uint32_t value, uint32_t mask);
+
+void raise_rcp_interrupt(struct mi_controller* mi, uint32_t interrupt);
+
 #endif

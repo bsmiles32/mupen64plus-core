@@ -134,3 +134,15 @@ int write_mi_regs(struct mi_controller* mi,
 
     return 0;
 }
+
+
+void raise_rcp_interrupt(struct mi_controller* mi, uint32_t interrupt)
+{
+    mi->regs[MI_INTR_REG] |= interrupt;
+
+    if (mi->regs[MI_INTR_REG] & mi->regs[MI_INTR_MASK_REG])
+    {
+        raise_interrupt(0x04);
+    }
+}
+

@@ -44,6 +44,7 @@
 #include "cp0.h"
 #include "exception.h"
 #include "interupt.h"
+#include "mi.h"
 #include "r4300.h"
 #include "recomp.h"
 #include "reset.h"
@@ -400,6 +401,36 @@ void check_interupt(void)
     }
 }
 
+
+static void exception_general_wrapper(void)
+{
+#ifdef NEW_DYNAREC
+    if (r4300emu == CORE_DYNAREC) {
+        g_cp0_regs[CP0_EPC_REG] = pcaddr;
+        pcaddr = 0x80000180;
+        g_cp0_regs[CP0_STATUS_REG] |= 2;
+        g_cp0_regs[CP0_CAUSE_REG] &= 0x7FFFFFFF;
+        pending_exception=1;
+    } else {
+        exception_general();
+    }
+#else
+    exception_general();
+#endif
+}
+
+
+static void try_save_pending_savestate(void)
+{
+    if (!interupt_unsafe_state)
+    {
+        if (savestates_get_job() == savestates_job_save)
+        {
+            savestates_save();
+        }
+    }
+}
+
 void gen_interupt(void)
 {
     if (stop == 1)
@@ -445,8 +476,8 @@ void gen_interupt(void)
             if (g_cp0_regs[CP0_COUNT_REG] > 0x10000000) return;
             remove_interupt_event();
             add_interupt_event_count(SPECIAL_INT, 0);
-            return;
             break;
+
         case VI_INT:
             if(vi_counter < 60)
             {
@@ -494,13 +525,7 @@ void gen_interupt(void)
             remove_interupt_event();
             add_interupt_event_count(VI_INT, next_vi);
     
-            g_mi.regs[MI_INTR_REG] |= MI_INTR_VI;
-            if (g_mi.regs[MI_INTR_REG] & g_mi.regs[MI_INTR_MASK_REG])
-                g_cp0_regs[CP0_CAUSE_REG] = (g_cp0_regs[CP0_CAUSE_REG] | 0x400) & 0xFFFFFF83;
-            else
-                return;
-            if ((g_cp0_regs[CP0_STATUS_REG] & 7) != 1) return;
-            if (!(g_cp0_regs[CP0_STATUS_REG] & g_cp0_regs[CP0_CAUSE_REG] & 0xFF00)) return;
+            raise_rcp_interrupt(&g_mi, MI_INTR_VI);
             break;
     
         case COMPARE_INT:
@@ -509,13 +534,13 @@ void gen_interupt(void)
             add_interupt_event_count(COMPARE_INT, g_cp0_regs[CP0_COMPARE_REG]);
             g_cp0_regs[CP0_COUNT_REG]-=count_per_op;
     
-            g_cp0_regs[CP0_CAUSE_REG] = (g_cp0_regs[CP0_CAUSE_REG] | 0x8000) & 0xFFFFFF83;
-            if ((g_cp0_regs[CP0_STATUS_REG] & 7) != 1) return;
-            if (!(g_cp0_regs[CP0_STATUS_REG] & g_cp0_regs[CP0_CAUSE_REG] & 0xFF00)) return;
+            raise_interrupt(0x80);
             break;
     
         case CHECK_INT:
             remove_interupt_event();
+            exception_general_wrapper();
+            try_save_pending_savestate();
             break;
     
         case SI_INT:
@@ -524,67 +549,36 @@ void gen_interupt(void)
 #endif //WITH_LIRC
             SDL_PumpEvents();
             g_si.pif_ram[0x3f] = 0x0;
-            remove_interupt_event();
-            g_mi.regs[MI_INTR_REG] |= MI_INTR_SI;
             g_si.regs[SI_STATUS_REG] |= 0x1000;
-            if (g_mi.regs[MI_INTR_REG] & g_mi.regs[MI_INTR_MASK_REG])
-                g_cp0_regs[CP0_CAUSE_REG] = (g_cp0_regs[CP0_CAUSE_REG] | 0x400) & 0xFFFFFF83;
-            else
-                return;
-            if ((g_cp0_regs[CP0_STATUS_REG] & 7) != 1) return;
-            if (!(g_cp0_regs[CP0_STATUS_REG] & g_cp0_regs[CP0_CAUSE_REG] & 0xFF00)) return;
+            remove_interupt_event();
+            raise_rcp_interrupt(&g_mi, MI_INTR_SI);
             break;
     
         case PI_INT:
             remove_interupt_event();
-            g_mi.regs[MI_INTR_REG] |= MI_INTR_PI;
             g_pi.regs[PI_STATUS_REG] &= ~3;
-            if (g_mi.regs[MI_INTR_REG] & g_mi.regs[MI_INTR_MASK_REG])
-                g_cp0_regs[CP0_CAUSE_REG] = (g_cp0_regs[CP0_CAUSE_REG] | 0x400) & 0xFFFFFF83;
-            else
-                return;
-            if ((g_cp0_regs[CP0_STATUS_REG] & 7) != 1) return;
-            if (!(g_cp0_regs[CP0_STATUS_REG] & g_cp0_regs[CP0_CAUSE_REG] & 0xFF00)) return;
+            raise_rcp_interrupt(&g_mi, MI_INTR_PI);
             break;
     
         case AI_INT:
             remove_interupt_event();
             fifo_pop(&g_ai);
-            g_mi.regs[MI_INTR_REG] |= MI_INTR_AI;
-            if (g_mi.regs[MI_INTR_REG] & g_mi.regs[MI_INTR_MASK_REG])
-                g_cp0_regs[CP0_CAUSE_REG] = (g_cp0_regs[CP0_CAUSE_REG] | 0x400) & 0xFFFFFF83;
-            else
-                return;
-            if ((g_cp0_regs[CP0_STATUS_REG] & 7) != 1) return;
-            if (!(g_cp0_regs[CP0_STATUS_REG] & g_cp0_regs[CP0_CAUSE_REG] & 0xFF00)) return;
+            raise_rcp_interrupt(&g_mi, MI_INTR_AI);
             break;
 
         case SP_INT:
             remove_interupt_event();
             g_sp.regs[SP_STATUS_REG] |= 0x203;
             // g_sp.regs[SP_STATUS_REG] |= 0x303;
-    
             if (!(g_sp.regs[SP_STATUS_REG] & 0x40)) return; // !intr_on_break
-            g_mi.regs[MI_INTR_REG] |= MI_INTR_SP;
-            if (g_mi.regs[MI_INTR_REG] & g_mi.regs[MI_INTR_MASK_REG])
-                g_cp0_regs[CP0_CAUSE_REG] = (g_cp0_regs[CP0_CAUSE_REG] | 0x400) & 0xFFFFFF83;
-            else
-                return;
-            if ((g_cp0_regs[CP0_STATUS_REG] & 7) != 1) return;
-            if (!(g_cp0_regs[CP0_STATUS_REG] & g_cp0_regs[CP0_CAUSE_REG] & 0xFF00)) return;
+            raise_rcp_interrupt(&g_mi, MI_INTR_SP);
             break;
     
         case DP_INT:
             remove_interupt_event();
             g_dp.dpc_regs[DPC_STATUS_REG] &= ~0x2;
             g_dp.dpc_regs[DPC_STATUS_REG] |= 0x81;
-            g_mi.regs[MI_INTR_REG] |= MI_INTR_DP;
-            if (g_mi.regs[MI_INTR_REG] & g_mi.regs[MI_INTR_MASK_REG])
-                g_cp0_regs[CP0_CAUSE_REG] = (g_cp0_regs[CP0_CAUSE_REG] | 0x400) & 0xFFFFFF83;
-            else
-                return;
-            if ((g_cp0_regs[CP0_STATUS_REG] & 7) != 1) return;
-            if (!(g_cp0_regs[CP0_STATUS_REG] & g_cp0_regs[CP0_CAUSE_REG] & 0xFF00)) return;
+            raise_rcp_interrupt(&g_mi, MI_INTR_DP);
             break;
 
         case HW2_INT:
@@ -593,9 +587,8 @@ void gen_interupt(void)
             // setup r4300 Status flags: reset TS, and SR, set IM2
             g_cp0_regs[CP0_STATUS_REG] = (g_cp0_regs[CP0_STATUS_REG] & ~0x00380000) | 0x1000;
             g_cp0_regs[CP0_CAUSE_REG] = (g_cp0_regs[CP0_CAUSE_REG] | 0x1000) & 0xFFFFFF83;
-            /* the exception_general() call below will jump to the interrupt vector (0x80000180) and setup the
-             * interpreter or dynarec
-             */
+            exception_general_wrapper();
+            try_save_pending_savestate();
             break;
 
         case NMI_INT:
@@ -631,35 +624,34 @@ void gen_interupt(void)
             // set next instruction address to reset vector
             last_addr = 0xa4000040;
             generic_jump_to(0xa4000040);
-            return;
+            break;
 
         default:
             DebugMessage(M64MSG_ERROR, "Unknown interrupt queue event type %.8X.", q.first->data.type);
             remove_interupt_event();
+            exception_general_wrapper();
+            try_save_pending_savestate();
             break;
     }
+}
 
-#ifdef NEW_DYNAREC
-    if (r4300emu == CORE_DYNAREC) {
-        g_cp0_regs[CP0_EPC_REG] = pcaddr;
-        pcaddr = 0x80000180;
-        g_cp0_regs[CP0_STATUS_REG] |= 2;
-        g_cp0_regs[CP0_CAUSE_REG] &= 0x7FFFFFFF;
-        pending_exception=1;
-    } else {
-        exception_general();
-    }
-#else
-    exception_general();
-#endif
+void raise_interrupt(uint8_t ip)
+{
+    g_cp0_regs[CP0_CAUSE_REG] |= ((uint32_t)ip << 8);
+    g_cp0_regs[CP0_CAUSE_REG] &= ~0x7c;
 
-    if (!interupt_unsafe_state)
-    {
-        if (savestates_get_job() == savestates_job_save)
-        {
-            savestates_save();
-            return;
-        }
-    }
+    /* XXX: why EXL and ERL are tested as well ? */
+    if ((g_cp0_regs[CP0_STATUS_REG] & 7) != 1)
+        return;
+
+    if (!(g_cp0_regs[CP0_STATUS_REG] & g_cp0_regs[CP0_CAUSE_REG] & 0xff00))
+        return;
+
+    exception_general_wrapper();
+
+    /* According to main/savestates.c,
+     * PJ64 savestates can only be saved on VI/COMPARE interrupt,
+     * that's why we try this here */
+    try_save_pending_savestate();
 }
 

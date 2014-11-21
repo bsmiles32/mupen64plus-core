@@ -22,6 +22,8 @@
 #ifndef M64P_R4300_INTERUPT_H
 #define M64P_R4300_INTERUPT_H
 
+#include <stdint.h>
+
 void init_interupt(void);
 
 extern unsigned int next_vi;
@@ -32,6 +34,7 @@ extern int interupt_unsafe_state;
 
 void gen_interupt(void);
 void check_interupt(void);
+void raise_interrupt(uint8_t ip);
 
 void translate_event_queue(unsigned int base);
 void remove_event(int type);
