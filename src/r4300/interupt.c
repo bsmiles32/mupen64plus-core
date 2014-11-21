@@ -431,6 +431,165 @@ static void try_save_pending_savestate(void)
     }
 }
 
+
+static void special_int_handler(void)
+{
+    if (g_cp0_regs[CP0_COUNT_REG] > 0x10000000)
+        return;
+
+    remove_interupt_event();
+    add_interupt_event_count(SPECIAL_INT, 0);
+}
+
+static void vi_int_handler(void)
+{
+    if(vi_counter < 60)
+    {
+        if (vi_counter == 0)
+            cheat_apply_cheats(ENTRY_BOOT);
+        vi_counter++;
+    }
+    else
+    {
+        cheat_apply_cheats(ENTRY_VI);
+    }
+    gfx.updateScreen();
+
+    poll_inputs();
+
+    timed_sections_refresh();
+
+    // if paused, poll for input events
+    if(rompause)
+    {
+        osd_render();  // draw Paused message in case gfx.updateScreen didn't do it
+        VidExt_GL_SwapBuffers();
+        while(rompause)
+        {
+            SDL_Delay(10);
+            poll_inputs();
+        }
+    }
+
+    new_vi();
+
+    /* update next VI interrupt timings */
+    g_vi.duration = (g_vi.regs[VI_V_SYNC_REG] == 0)
+                  ? 500000
+                  : (g_vi.regs[VI_V_SYNC_REG] + 1)*1500;
+    next_vi += g_vi.duration;
+    /* update VI field (0 if non interlaced, toggle if interlaced) */
+    g_vi.field = ((g_vi.regs[VI_STATUS_REG] & 0x40) >> 6) & ~g_vi.field;
+
+    remove_interupt_event();
+    add_interupt_event_count(VI_INT, next_vi);
+
+    raise_rcp_interrupt(&g_mi, MI_INTR_VI);
+}
+
+static void compare_int_handler(void)
+{
+    remove_interupt_event();
+    g_cp0_regs[CP0_COUNT_REG]+=count_per_op;
+    add_interupt_event_count(COMPARE_INT, g_cp0_regs[CP0_COMPARE_REG]);
+    g_cp0_regs[CP0_COUNT_REG]-=count_per_op;
+
+    raise_interrupt(0x80);
+}
+
+static void check_int_handler(void)
+{
+    remove_interupt_event();
+    exception_general_wrapper();
+    try_save_pending_savestate();
+}
+
+static void si_int_handler(void)
+{
+    poll_inputs();
+    g_si.pif_ram[0x3f] = 0x0;
+    g_si.regs[SI_STATUS_REG] |= 0x1000;
+    remove_interupt_event();
+    raise_rcp_interrupt(&g_mi, MI_INTR_SI);
+}
+
+static void pi_int_handler(void)
+{
+    remove_interupt_event();
+    g_pi.regs[PI_STATUS_REG] &= ~3;
+    raise_rcp_interrupt(&g_mi, MI_INTR_PI);
+}
+
+static void ai_int_handler(void)
+{
+    remove_interupt_event();
+    fifo_pop(&g_ai);
+    raise_rcp_interrupt(&g_mi, MI_INTR_AI);
+}
+
+static void sp_int_handler(void)
+{
+    remove_interupt_event();
+    g_sp.regs[SP_STATUS_REG] |= 0x203;
+    // g_sp.regs[SP_STATUS_REG] |= 0x303;
+    if (!(g_sp.regs[SP_STATUS_REG] & 0x40)) return; // !intr_on_break
+    raise_rcp_interrupt(&g_mi, MI_INTR_SP);
+}
+
+static void dp_int_handler(void)
+{
+    remove_interupt_event();
+    g_dp.dpc_regs[DPC_STATUS_REG] &= ~0x2;
+    g_dp.dpc_regs[DPC_STATUS_REG] |= 0x81;
+    raise_rcp_interrupt(&g_mi, MI_INTR_DP);
+}
+
+static void hw2_int_handler(void)
+{
+    remove_interupt_event();
+    g_cp0_regs[CP0_STATUS_REG] = (g_cp0_regs[CP0_STATUS_REG] & ~0x00380000) | 0x1000;
+    g_cp0_regs[CP0_CAUSE_REG] = (g_cp0_regs[CP0_CAUSE_REG] | 0x1000) & 0xFFFFFF83;
+    exception_general_wrapper();
+    try_save_pending_savestate();
+}
+
+static void nmi_int_handler(void)
+{
+    remove_interupt_event();
+    // setup r4300 Status flags: reset TS and SR, set BEV, ERL, and SR
+    g_cp0_regs[CP0_STATUS_REG] = (g_cp0_regs[CP0_STATUS_REG] & ~0x00380000) | 0x00500004;
+    g_cp0_regs[CP0_CAUSE_REG]  = 0x00000000;
+    // simulate the soft reset code which would run from the PIF ROM
+    r4300_reset_soft();
+    // clear all interrupts, reset interrupt counters back to 0
+    g_cp0_regs[CP0_COUNT_REG] = 0;
+    vi_counter = 0;
+    init_interupt();
+    // clear the audio status register so that subsequent write_ai() calls will work properly
+    g_ai.regs[AI_STATUS_REG] = 0;
+    // set ErrorEPC with the last instruction address
+    g_cp0_regs[CP0_ERROREPC_REG] = PC->addr;
+    // reset the r4300 internal state
+    if (r4300emu != CORE_PURE_INTERPRETER)
+    {
+        // clear all the compiled instruction blocks and re-initialize
+        free_blocks();
+        init_blocks();
+    }
+    // adjust ErrorEPC if we were in a delay slot, and clear the delay_slot and dyna_interp flags
+    if(delay_slot==1 || delay_slot==3)
+    {
+        g_cp0_regs[CP0_ERROREPC_REG]-=4;
+    }
+    delay_slot = 0;
+    dyna_interp = 0;
+    // set next instruction address to reset vector
+    last_addr = 0xa4000040;
+    generic_jump_to(0xa4000040);
+}
+
+
+
 void gen_interupt(void)
 {
     if (stop == 1)
@@ -473,149 +632,47 @@ void gen_interupt(void)
     switch(q.first->data.type)
     {
         case SPECIAL_INT:
-            if (g_cp0_regs[CP0_COUNT_REG] > 0x10000000) return;
-            remove_interupt_event();
-            add_interupt_event_count(SPECIAL_INT, 0);
+            special_int_handler();
             break;
 
         case VI_INT:
-            if(vi_counter < 60)
-            {
-                if (vi_counter == 0)
-                    cheat_apply_cheats(ENTRY_BOOT);
-                vi_counter++;
-            }
-            else
-            {
-                cheat_apply_cheats(ENTRY_VI);
-            }
-            gfx.updateScreen();
-
-            poll_inputs();
-
-            timed_sections_refresh();
-
-            // if paused, poll for input events
-            if(rompause)
-            {
-                osd_render();  // draw Paused message in case gfx.updateScreen didn't do it
-                VidExt_GL_SwapBuffers();
-                while(rompause)
-                {
-                    SDL_Delay(10);
-                    poll_inputs();
-                }
-            }
-
-            new_vi();
-
-            /* update next VI interrupt timings */
-            g_vi.duration = (g_vi.regs[VI_V_SYNC_REG] == 0)
-                          ? 500000
-                          : (g_vi.regs[VI_V_SYNC_REG] + 1)*1500;
-            next_vi += g_vi.duration;
-            /* update VI field (0 if non interlaced, toggle if interlaced) */
-            g_vi.field = ((g_vi.regs[VI_STATUS_REG] & 0x40) >> 6) & ~g_vi.field;
-
-            remove_interupt_event();
-            add_interupt_event_count(VI_INT, next_vi);
-    
-            raise_rcp_interrupt(&g_mi, MI_INTR_VI);
+            vi_int_handler();
             break;
     
         case COMPARE_INT:
-            remove_interupt_event();
-            g_cp0_regs[CP0_COUNT_REG]+=count_per_op;
-            add_interupt_event_count(COMPARE_INT, g_cp0_regs[CP0_COMPARE_REG]);
-            g_cp0_regs[CP0_COUNT_REG]-=count_per_op;
-    
-            raise_interrupt(0x80);
+            compare_int_handler();
             break;
     
         case CHECK_INT:
-            remove_interupt_event();
-            exception_general_wrapper();
-            try_save_pending_savestate();
+            check_int_handler();
             break;
     
         case SI_INT:
-            poll_inputs();
-            g_si.pif_ram[0x3f] = 0x0;
-            g_si.regs[SI_STATUS_REG] |= 0x1000;
-            remove_interupt_event();
-            raise_rcp_interrupt(&g_mi, MI_INTR_SI);
+            si_int_handler();
             break;
     
         case PI_INT:
-            remove_interupt_event();
-            g_pi.regs[PI_STATUS_REG] &= ~3;
-            raise_rcp_interrupt(&g_mi, MI_INTR_PI);
+            pi_int_handler();
             break;
     
         case AI_INT:
-            remove_interupt_event();
-            fifo_pop(&g_ai);
-            raise_rcp_interrupt(&g_mi, MI_INTR_AI);
+            ai_int_handler();
             break;
 
         case SP_INT:
-            remove_interupt_event();
-            g_sp.regs[SP_STATUS_REG] |= 0x203;
-            // g_sp.regs[SP_STATUS_REG] |= 0x303;
-            if (!(g_sp.regs[SP_STATUS_REG] & 0x40)) return; // !intr_on_break
-            raise_rcp_interrupt(&g_mi, MI_INTR_SP);
+            sp_int_handler();
             break;
     
         case DP_INT:
-            remove_interupt_event();
-            g_dp.dpc_regs[DPC_STATUS_REG] &= ~0x2;
-            g_dp.dpc_regs[DPC_STATUS_REG] |= 0x81;
-            raise_rcp_interrupt(&g_mi, MI_INTR_DP);
+            dp_int_handler();
             break;
 
         case HW2_INT:
-            // Hardware Interrupt 2 -- remove interrupt event from queue
-            remove_interupt_event();
-            // setup r4300 Status flags: reset TS, and SR, set IM2
-            g_cp0_regs[CP0_STATUS_REG] = (g_cp0_regs[CP0_STATUS_REG] & ~0x00380000) | 0x1000;
-            g_cp0_regs[CP0_CAUSE_REG] = (g_cp0_regs[CP0_CAUSE_REG] | 0x1000) & 0xFFFFFF83;
-            exception_general_wrapper();
-            try_save_pending_savestate();
+            hw2_int_handler();
             break;
 
         case NMI_INT:
-            // Non Maskable Interrupt -- remove interrupt event from queue
-            remove_interupt_event();
-            // setup r4300 Status flags: reset TS and SR, set BEV, ERL, and SR
-            g_cp0_regs[CP0_STATUS_REG] = (g_cp0_regs[CP0_STATUS_REG] & ~0x00380000) | 0x00500004;
-            g_cp0_regs[CP0_CAUSE_REG]  = 0x00000000;
-            // simulate the soft reset code which would run from the PIF ROM
-            r4300_reset_soft();
-            // clear all interrupts, reset interrupt counters back to 0
-            g_cp0_regs[CP0_COUNT_REG] = 0;
-            vi_counter = 0;
-            init_interupt();
-            // clear the audio status register so that subsequent write_ai() calls will work properly
-            g_ai.regs[AI_STATUS_REG] = 0;
-            // set ErrorEPC with the last instruction address
-            g_cp0_regs[CP0_ERROREPC_REG] = PC->addr;
-            // reset the r4300 internal state
-            if (r4300emu != CORE_PURE_INTERPRETER)
-            {
-                // clear all the compiled instruction blocks and re-initialize
-                free_blocks();
-                init_blocks();
-            }
-            // adjust ErrorEPC if we were in a delay slot, and clear the delay_slot and dyna_interp flags
-            if(delay_slot==1 || delay_slot==3)
-            {
-                g_cp0_regs[CP0_ERROREPC_REG]-=4;
-            }
-            delay_slot = 0;
-            dyna_interp = 0;
-            // set next instruction address to reset vector
-            last_addr = 0xa4000040;
-            generic_jump_to(0xa4000040);
+            nmi_int_handler();
             break;
 
         default:
