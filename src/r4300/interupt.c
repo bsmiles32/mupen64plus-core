@@ -266,9 +266,6 @@ static void remove_interupt_event(void)
 {
     struct node* e;
 
-    if (q.first->data.type == SPECIAL_INT)
-        SPECIAL_done = 1;
-
     e = q.first;
     q.first = e->next;
     free_node(&q.pool, e);
@@ -437,6 +434,7 @@ static void special_int_handler(void)
     if (g_cp0_regs[CP0_COUNT_REG] > 0x10000000)
         return;
 
+    SPECIAL_done = 1;
     remove_interupt_event();
     add_interupt_event_count(SPECIAL_INT, 0);
 }
