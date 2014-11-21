@@ -44,8 +44,8 @@
 
 /* global variables */
 char invalid_code[0x100000];
-precomp_block *blocks[0x100000];
-precomp_block *actual;
+struct precomp_block *blocks[0x100000];
+struct precomp_block *actual;
 unsigned int jump_to_address;
 
 // -----------------------------------------------------------
@@ -174,8 +174,8 @@ Used by dynarec only, check should be unnecessary
      }
    else
      {
-    precomp_block *blk = actual;
-    precomp_instr *inst = PC;
+    struct precomp_block *blk = actual;
+    struct precomp_instr *inst = PC;
     jump_to((PC-1)->addr+4);
     
 /*#ifdef DBG
@@ -227,7 +227,7 @@ static void NOTCOMPILED2(void)
 // -----------------------------------------------------------
 // Cached interpreter instruction table
 // -----------------------------------------------------------
-const cpu_instruction_table cached_interpreter_table = {
+const struct cpu_instruction_table cached_interpreter_table = {
    LB,
    LBU,
    LH,
@@ -542,7 +542,7 @@ void jump_to_func(void)
      {
     if (!blocks[addr>>12])
       {
-         blocks[addr>>12] = (precomp_block *) malloc(sizeof(precomp_block));
+         blocks[addr>>12] = (struct precomp_block*) malloc(sizeof(struct precomp_block));
          actual = blocks[addr>>12];
          blocks[addr>>12]->code = NULL;
          blocks[addr>>12]->block = NULL;

@@ -22,6 +22,7 @@
 #include "r4300.h"
 #include "cp0.h"
 #include "exception.h"
+#include "recomp.h"
 
 #include "new_dynarec/new_dynarec.h"
 

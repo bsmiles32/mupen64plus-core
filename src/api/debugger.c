@@ -40,6 +40,7 @@
 #include "r4300/r4300.h"
 #include "r4300/cp0.h"
 #include "r4300/cp1.h"
+#include "r4300/recomp.h"
 #include "r4300/tlb.h"
 
 unsigned int op;

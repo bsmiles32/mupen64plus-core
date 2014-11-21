@@ -46,7 +46,7 @@
 #   define offsetof(TYPE,MEMBER) ((unsigned int) &((TYPE*)0)->MEMBER)
 #endif
 
-static precomp_instr fake_instr;
+static struct precomp_instr fake_instr;
 #ifdef COMPARE_CORE
 static long long debug_reg_storage[8];
 #endif

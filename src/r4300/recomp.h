@@ -29,7 +29,7 @@
   #include "x86/assemble_struct.h"
 #endif
 
-typedef struct _precomp_instr
+struct precomp_instr
 {
    void (*ops)(void);
    union
@@ -68,11 +68,11 @@ typedef struct _precomp_instr
    unsigned int addr; /* word-aligned instruction address in r4300 address space */
    unsigned int local_addr; /* byte offset to start of corresponding x86_64 instructions, from start of code block */
    reg_cache_struct reg_cache_infos;
-} precomp_instr;
+};
 
-typedef struct _precomp_block
+struct precomp_block
 {
-   precomp_instr *block;
+   struct precomp_instr *block;
    unsigned int start;
    unsigned int end;
    unsigned char *code;
@@ -84,11 +84,11 @@ typedef struct _precomp_block
    int riprel_number;
    //unsigned char md5[16];
    unsigned int adler32;
-} precomp_block;
+};
 
-void recompile_block(int *source, precomp_block *block, unsigned int func);
-void init_block(precomp_block *block);
-void free_block(precomp_block *block);
+void recompile_block(int *source, struct precomp_block *block, unsigned int func);
+void init_block(struct precomp_block *block);
+void free_block(struct precomp_block *block);
 void recompile_opcode(void);
 void prefetch_opcode(unsigned int op, unsigned int nextop);
 void dyna_jump(void);
@@ -96,7 +96,7 @@ void dyna_start(void *code);
 void dyna_stop(void);
 void *realloc_exec(void *ptr, size_t oldsize, size_t newsize);
 
-extern precomp_instr *dst; /* precomp_instr structure for instruction being recompiled */
+extern struct precomp_instr *dst; /* precomp_instr structure for instruction being recompiled */
 
 extern int no_compiled_jump;
 

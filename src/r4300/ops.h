@@ -22,7 +22,7 @@
 #ifndef M64P_R4300_OPS_H
 #define M64P_R4300_OPS_H
 
-typedef struct _cpu_instruction_table
+struct cpu_instruction_table
 {
 	/* All jump/branch instructions (except JR and JALR) have three versions:
 	 * - JUMPNAME() which for jumps inside the current block.
@@ -319,6 +319,6 @@ typedef struct _cpu_instruction_table
 	void (*FIN_BLOCK)(void);    // Handler for the end of a block
 	void (*NOTCOMPILED)(void);  // Handler for not yet compiled code
 	void (*NOTCOMPILED2)(void); // TODOXXX
-} cpu_instruction_table;
+};
 
 #endif /* M64P_R4300_OPS_H_*/

@@ -62,12 +62,12 @@ int llbit, rompause;
 int stop;
 long long int reg[32], hi, lo;
 unsigned int next_interupt;
-precomp_instr *PC;
+struct precomp_instr *PC;
 #endif
 long long int local_rs;
 unsigned int delay_slot, skip_jump = 0, dyna_interp = 0, last_addr;
 
-cpu_instruction_table current_instruction_table;
+struct cpu_instruction_table current_instruction_table;
 
 void generic_jump_to(unsigned int address)
 {

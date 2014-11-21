@@ -22,15 +22,13 @@
 #ifndef M64P_R4300_CACHED_INTERP_H
 #define M64P_R4300_CACHED_INTERP_H
 
-#include "ops.h"
-/* FIXME: use forward declaration for precomp_block */
-#include "recomp.h"
+struct precomp_block;
 
 extern char invalid_code[0x100000];
-extern precomp_block *blocks[0x100000];
-extern precomp_block *actual;
+extern struct precomp_block *blocks[0x100000];
+extern struct precomp_block *actual;
 extern unsigned int jump_to_address;
-extern const cpu_instruction_table cached_interpreter_table;
+extern const struct cpu_instruction_table cached_interpreter_table;
 
 void init_blocks(void);
 void free_blocks(void);

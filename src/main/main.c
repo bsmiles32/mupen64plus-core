@@ -57,6 +57,7 @@
 #include "plugin/plugin.h"
 #include "r4300/r4300.h"
 #include "r4300/interupt.h"
+#include "r4300/recomp.h"
 #include "r4300/reset.h"
 
 #ifdef DBG

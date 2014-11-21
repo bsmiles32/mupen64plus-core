@@ -40,12 +40,14 @@
 #include "rsp/core.h"
 #include "vi/controller.h"
 
-#include "interupt.h"
-#include "r4300.h"
 #include "cached_interp.h"
 #include "cp0.h"
 #include "exception.h"
+#include "interupt.h"
+#include "r4300.h"
+#include "recomp.h"
 #include "reset.h"
+
 #include "new_dynarec/new_dynarec.h"
 
 #ifdef WITH_LIRC

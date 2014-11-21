@@ -22,10 +22,7 @@
 #ifndef M64P_R4300_R4300_H
 #define M64P_R4300_R4300_H
 
-#include "ops.h"
-#include "recomp.h"
-
-extern precomp_instr *PC;
+extern struct precomp_instr *PC;
 
 extern int stop, llbit, rompause;
 extern long long int reg[32], hi, lo;
@@ -36,7 +33,7 @@ extern unsigned int next_interupt;
 extern unsigned int last_addr;
 #define COUNT_PER_OP_DEFAULT 2
 extern unsigned int count_per_op;
-extern cpu_instruction_table current_instruction_table;
+extern struct cpu_instruction_table current_instruction_table;
 
 void r4300_reset_hard(void);
 void r4300_reset_soft(void);

@@ -30,14 +30,15 @@
 #include "main/rom.h"
 #include "osal/preproc.h"
 
-#include "r4300.h"
+#include "cached_interp.h"
 #include "cp0.h"
 #include "cp1.h"
-#include "cached_interp.h"
-#include "ops.h"
 #include "exception.h"
-#include "macros.h"
 #include "interupt.h"
+#include "macros.h"
+#include "ops.h"
+#include "r4300.h"
+#include "recomp.h"
 #include "tlb.h"
 
 #ifdef DBG
@@ -45,7 +46,7 @@
 #include "debugger/debugger.h"
 #endif
 
-static precomp_instr interp_PC;
+static struct precomp_instr interp_PC;
 
 static void prefetch(void);
 
@@ -110,7 +111,7 @@ static void prefetch(void);
 
 #include "interpreter.def"
 
-static cpu_instruction_table pure_interpreter_table = {
+static struct cpu_instruction_table pure_interpreter_table = {
    LB,
    LBU,
    LH,

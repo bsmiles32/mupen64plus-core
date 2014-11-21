@@ -24,6 +24,7 @@
 #define M64P_R4300_ASSEMBLE_H
 
 #include "osal/preproc.h"
+#include "r4300/recomp.h"
 #include "r4300/recomph.h"
 #include "api/callbacks.h"
 

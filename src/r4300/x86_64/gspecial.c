@@ -187,10 +187,10 @@ void genjr(void)
 #ifdef INTERPRET_JR
    gencallinterp((unsigned long long)cached_interpreter_table.JR, 1);
 #else
-   static unsigned int precomp_instr_size = sizeof(precomp_instr);
-   unsigned int diff = (unsigned int) offsetof(precomp_instr, local_addr);
-   unsigned int diff_need = (unsigned int) offsetof(precomp_instr, reg_cache_infos.need_map);
-   unsigned int diff_wrap = (unsigned int) offsetof(precomp_instr, reg_cache_infos.jump_wrapper);
+   static unsigned int precomp_instr_size = sizeof(struct precomp_instr);
+   unsigned int diff = (unsigned int) offsetof(struct precomp_instr, local_addr);
+   unsigned int diff_need = (unsigned int) offsetof(struct precomp_instr, reg_cache_infos.need_map);
+   unsigned int diff_wrap = (unsigned int) offsetof(struct precomp_instr, reg_cache_infos.jump_wrapper);
    
    if (((dst->addr & 0xFFF) == 0xFFC && 
        (dst->addr < 0x80000000 || dst->addr >= 0xC0000000))||no_compiled_jump)
@@ -256,10 +256,10 @@ void genjalr(void)
 #ifdef INTERPRET_JALR
    gencallinterp((unsigned long long)cached_interpreter_table.JALR, 0);
 #else
-   static unsigned int precomp_instr_size = sizeof(precomp_instr);
-   unsigned int diff = (unsigned int) offsetof(precomp_instr, local_addr);
-   unsigned int diff_need = (unsigned int) offsetof(precomp_instr, reg_cache_infos.need_map);
-   unsigned int diff_wrap = (unsigned int) offsetof(precomp_instr, reg_cache_infos.jump_wrapper);
+   static unsigned int precomp_instr_size = sizeof(struct precomp_instr);
+   unsigned int diff = (unsigned int) offsetof(struct precomp_instr, local_addr);
+   unsigned int diff_need = (unsigned int) offsetof(struct precomp_instr, reg_cache_infos.need_map);
+   unsigned int diff_wrap = (unsigned int) offsetof(struct precomp_instr, reg_cache_infos.jump_wrapper);
    
    if (((dst->addr & 0xFFF) == 0xFFC && 
        (dst->addr < 0x80000000 || dst->addr >= 0xC0000000))||no_compiled_jump)

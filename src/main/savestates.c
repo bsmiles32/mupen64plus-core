@@ -49,6 +49,7 @@
 #include "r4300/r4300.h"
 #include "r4300/cached_interp.h"
 #include "r4300/interupt.h"
+#include "r4300/recomp.h"
 #include "rdp/core.h"
 #include "rsp/core.h"
 #include "osal/preproc.h"
