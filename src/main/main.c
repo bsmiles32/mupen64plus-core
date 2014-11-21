@@ -745,6 +745,18 @@ void new_vi(void)
     timed_section_end(TIMED_SECTION_IDLE);
 }
 
+
+/* ! must be called from the same thread that initialized the video subsystem,
+ * and preferably the main thread. See SDL doc.  */
+void poll_inputs(void)
+{
+#ifdef WITH_LIRC
+    lircCheckInput();
+#endif
+    SDL_PumpEvents();
+}
+
+
 /*********************************************************************************************************
 * emulation thread - runs the core
 */

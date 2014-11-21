@@ -51,10 +51,6 @@
 
 #include "new_dynarec/new_dynarec.h"
 
-#ifdef WITH_LIRC
-#include "main/lirc.h"
-#endif
-
 unsigned int next_vi;
 static int vi_counter=0;
 
@@ -490,10 +486,8 @@ void gen_interupt(void)
                 cheat_apply_cheats(ENTRY_VI);
             }
             gfx.updateScreen();
-#ifdef WITH_LIRC
-            lircCheckInput();
-#endif
-            SDL_PumpEvents();
+
+            poll_inputs();
 
             timed_sections_refresh();
 
@@ -505,10 +499,7 @@ void gen_interupt(void)
                 while(rompause)
                 {
                     SDL_Delay(10);
-                    SDL_PumpEvents();
-#ifdef WITH_LIRC
-                    lircCheckInput();
-#endif //WITH_LIRC
+                    poll_inputs();
                 }
             }
 
@@ -544,10 +535,7 @@ void gen_interupt(void)
             break;
     
         case SI_INT:
-#ifdef WITH_LIRC
-            lircCheckInput();
-#endif //WITH_LIRC
-            SDL_PumpEvents();
+            poll_inputs();
             g_si.pif_ram[0x3f] = 0x0;
             g_si.regs[SI_STATUS_REG] |= 0x1000;
             remove_interupt_event();

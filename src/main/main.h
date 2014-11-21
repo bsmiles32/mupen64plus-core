@@ -59,6 +59,7 @@ const char* get_savesrampath(void);
 
 void new_frame(void);
 void new_vi(void);
+void poll_inputs(void);
 
 int  main_set_core_defaults(void);
 void main_message(m64p_msg_level level, unsigned int osd_corner, const char *format, ...);
