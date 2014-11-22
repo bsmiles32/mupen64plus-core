@@ -374,3 +374,14 @@ int write_rsp_regs2(struct rsp_core* sp,
     return 0;
 }
 
+
+void rsp_event_sp_int(struct rsp_core* sp)
+{
+    /* ??? */
+    sp->regs[SP_STATUS_REG] |= 0x203;
+    // sp->regs[SP_STATUS_REG] |= 0x303;
+
+    if (sp->regs[SP_STATUS_REG] & 0x40)
+        raise_rcp_interrupt(sp->mi, MI_INTR_SP);
+}
+

@@ -90,5 +90,7 @@ int write_pif_ram(struct si_controller* si,
 
 enum cic_type detect_cic_type(const void* ipl3);
 
+void si_event_si_int(struct si_controller* si);
+
 #endif
 

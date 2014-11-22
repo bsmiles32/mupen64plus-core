@@ -37,8 +37,9 @@
 #include "api/m64p_types.h"
 #include "api/callbacks.h"
 #include "api/config.h"
-#include "api/m64p_config.h"
 #include "api/debugger.h"
+#include "api/m64p_config.h"
+#include "api/m64p_vidext.h"
 #include "api/vidext.h"
 
 #include "main.h"
@@ -95,6 +96,7 @@ static int   l_TakeScreenshot = 0;       // Tell OSD Rendering callback to take 
 static int   l_SpeedFactor = 100;        // percentage of nominal game speed at which emulator is running
 static int   l_FrameAdvance = 0;         // variable to check if we pause on next frame
 static int   l_MainSpeedLimit = 1;       // insert delay during vi_interrupt to keep speed at real-time
+static int   l_ViCounter = 0;            // VI counter
 
 static osd_message_t *l_msgVol = NULL;
 static osd_message_t *l_msgFF = NULL;
@@ -756,6 +758,46 @@ void poll_inputs(void)
     SDL_PumpEvents();
 }
 
+
+
+
+/* called by the vi controller during a Vertical Interrupt */
+void main_vi_event_callback(void)
+{
+    if(l_ViCounter < 60)
+    {
+        if (l_ViCounter == 0)
+            cheat_apply_cheats(ENTRY_BOOT);
+        l_ViCounter++;
+    }
+    else
+    {
+        cheat_apply_cheats(ENTRY_VI);
+    }
+
+    poll_inputs();
+
+    timed_sections_refresh();
+
+    // if paused, poll for input events
+    if(rompause)
+    {
+        osd_render();  // draw Paused message in case gfx.updateScreen didn't do it
+        VidExt_GL_SwapBuffers();
+        while(rompause)
+        {
+            SDL_Delay(10);
+            poll_inputs();
+        }
+    }
+
+    new_vi();
+}
+
+void reset_vi_counter(void)
+{
+    l_ViCounter = 0;
+}
 
 /*********************************************************************************************************
 * emulation thread - runs the core

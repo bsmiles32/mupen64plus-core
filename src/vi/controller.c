@@ -26,6 +26,7 @@
 #define M64P_CORE_PROTOTYPES 1
 #include "api/m64p_types.h"
 #include "api/callbacks.h"
+#include "main/main.h"
 #include "memory/memory.h"
 #include "plugin/plugin.h"
 #include "r4300/cp0.h"
@@ -143,6 +144,34 @@ int write_vi_regs(struct vi_controller* vi,
 //    DebugMessage(M64MSG_WARNING, "%s <- %08x", vi_regs_name[reg], value);
 
     return 0;
+}
+
+
+void vi_event_vertical_interrupt(struct vi_controller* vi)
+{
+    gfx_vi_update_screen();
+
+    /* let the main module do its things (cheats, print some stats, pause, sleep) */
+    main_vi_event_callback();
+
+    /* update VI field (0 if non interlaced, toggle if interlaced) */
+    vi->field = ((vi->regs[VI_STATUS_REG] & 0x40) >> 6) & ~vi->field;
+
+    /* update next VI interrupt timings */
+    vi->duration = (vi->regs[VI_V_SYNC_REG] == 0)
+                  ? 500000
+                  : (vi->regs[VI_V_SYNC_REG] + 1)*1500;
+    vi->next_vi += vi->duration;
+
+    add_interupt_event_count(VI_INT, vi->next_vi);
+
+    raise_rcp_interrupt(vi->mi, MI_INTR_VI);
+}
+
+
+void gfx_vi_update_screen(void)
+{
+    gfx.updateScreen();
 }
 
 void gfx_vi_status_changed(void)

@@ -77,7 +77,7 @@ int read_ai_regs(struct ai_controller* ai,
 int write_ai_regs(struct ai_controller* ai,
                   uint32_t address, uint32_t value, uint32_t mask);
 
-void fifo_pop(struct ai_controller* ai);
+void ai_event_end_of_dma(struct ai_controller* ai);
 
 void audio_ai_dacrate_changed(void);
 

@@ -92,5 +92,9 @@ int read_cart_rom(struct pi_controller* pi,
 
 int write_cart_rom(struct pi_controller* pi,
                    uint32_t address, uint32_t value, uint32_t mask);
+
+
+void pi_event_end_of_dma(struct pi_controller* pi);
+
 #endif
 

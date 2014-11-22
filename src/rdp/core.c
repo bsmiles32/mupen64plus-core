@@ -188,7 +188,13 @@ int write_dps_regs(struct rdp_core* dp,
     return 0;
 }
 
+void rdp_event_dp_int(struct rdp_core* dp)
+{
+    dp->dpc_regs[DPC_STATUS_REG] &= ~0x2;
+    dp->dpc_regs[DPC_STATUS_REG] |= 0x81;
 
+    raise_rcp_interrupt(dp->mi, MI_INTR_DP);
+}
 
 void pre_framebuffer_read(struct rdp_core* dp, uint32_t address)
 {

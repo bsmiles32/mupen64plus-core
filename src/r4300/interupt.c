@@ -21,23 +21,16 @@
 
 #include <string.h>
 
-#include <SDL.h>
-
 #define M64P_CORE_PROTOTYPES 1
 #include "api/m64p_types.h"
 #include "api/callbacks.h"
-#include "api/m64p_vidext.h"
-#include "api/vidext.h"
 #include "ai/controller.h"
-#include "memory/memory.h"
-#include "main/rom.h"
 #include "main/main.h"
-#include "main/profile.h"
 #include "main/savestates.h"
-#include "main/cheat.h"
-#include "osd/osd.h"
-#include "plugin/plugin.h"
+#include "pi/controller.h"
+#include "rdp/core.h"
 #include "rsp/core.h"
+#include "si/controller.h"
 #include "vi/controller.h"
 
 #include "cached_interp.h"
@@ -51,7 +44,6 @@
 
 #include "new_dynarec/new_dynarec.h"
 
-static int vi_counter=0;
 
 int interupt_unsafe_state = 0;
 
@@ -434,55 +426,8 @@ static void special_int_handler(void)
     add_interupt_event_count(SPECIAL_INT, 0);
 }
 
-static void vi_int_handler(void)
-{
-    if(vi_counter < 60)
-    {
-        if (vi_counter == 0)
-            cheat_apply_cheats(ENTRY_BOOT);
-        vi_counter++;
-    }
-    else
-    {
-        cheat_apply_cheats(ENTRY_VI);
-    }
-    gfx.updateScreen();
-
-    poll_inputs();
-
-    timed_sections_refresh();
-
-    // if paused, poll for input events
-    if(rompause)
-    {
-        osd_render();  // draw Paused message in case gfx.updateScreen didn't do it
-        VidExt_GL_SwapBuffers();
-        while(rompause)
-        {
-            SDL_Delay(10);
-            poll_inputs();
-        }
-    }
-
-    new_vi();
-
-    /* update next VI interrupt timings */
-    g_vi.duration = (g_vi.regs[VI_V_SYNC_REG] == 0)
-                  ? 500000
-                  : (g_vi.regs[VI_V_SYNC_REG] + 1)*1500;
-    g_vi.next_vi += g_vi.duration;
-    /* update VI field (0 if non interlaced, toggle if interlaced) */
-    g_vi.field = ((g_vi.regs[VI_STATUS_REG] & 0x40) >> 6) & ~g_vi.field;
-
-    remove_interupt_event();
-    add_interupt_event_count(VI_INT, g_vi.next_vi);
-
-    raise_rcp_interrupt(&g_mi, MI_INTR_VI);
-}
-
 static void compare_int_handler(void)
 {
-    remove_interupt_event();
     g_cp0_regs[CP0_COUNT_REG]+=count_per_op;
     add_interupt_event_count(COMPARE_INT, g_cp0_regs[CP0_COMPARE_REG]);
     g_cp0_regs[CP0_COUNT_REG]-=count_per_op;
@@ -492,54 +437,12 @@ static void compare_int_handler(void)
 
 static void check_int_handler(void)
 {
-    remove_interupt_event();
     exception_general_wrapper();
     try_save_pending_savestate();
 }
 
-static void si_int_handler(void)
-{
-    poll_inputs();
-    g_si.pif_ram[0x3f] = 0x0;
-    g_si.regs[SI_STATUS_REG] |= 0x1000;
-    remove_interupt_event();
-    raise_rcp_interrupt(&g_mi, MI_INTR_SI);
-}
-
-static void pi_int_handler(void)
-{
-    remove_interupt_event();
-    g_pi.regs[PI_STATUS_REG] &= ~3;
-    raise_rcp_interrupt(&g_mi, MI_INTR_PI);
-}
-
-static void ai_int_handler(void)
-{
-    remove_interupt_event();
-    fifo_pop(&g_ai);
-    raise_rcp_interrupt(&g_mi, MI_INTR_AI);
-}
-
-static void sp_int_handler(void)
-{
-    remove_interupt_event();
-    g_sp.regs[SP_STATUS_REG] |= 0x203;
-    // g_sp.regs[SP_STATUS_REG] |= 0x303;
-    if (!(g_sp.regs[SP_STATUS_REG] & 0x40)) return; // !intr_on_break
-    raise_rcp_interrupt(&g_mi, MI_INTR_SP);
-}
-
-static void dp_int_handler(void)
-{
-    remove_interupt_event();
-    g_dp.dpc_regs[DPC_STATUS_REG] &= ~0x2;
-    g_dp.dpc_regs[DPC_STATUS_REG] |= 0x81;
-    raise_rcp_interrupt(&g_mi, MI_INTR_DP);
-}
-
 static void hw2_int_handler(void)
 {
-    remove_interupt_event();
     g_cp0_regs[CP0_STATUS_REG] = (g_cp0_regs[CP0_STATUS_REG] & ~0x00380000) | 0x1000;
     g_cp0_regs[CP0_CAUSE_REG] = (g_cp0_regs[CP0_CAUSE_REG] | 0x1000) & 0xFFFFFF83;
     exception_general_wrapper();
@@ -548,7 +451,6 @@ static void hw2_int_handler(void)
 
 static void nmi_int_handler(void)
 {
-    remove_interupt_event();
     // setup r4300 Status flags: reset TS and SR, set BEV, ERL, and SR
     g_cp0_regs[CP0_STATUS_REG] = (g_cp0_regs[CP0_STATUS_REG] & ~0x00380000) | 0x00500004;
     g_cp0_regs[CP0_CAUSE_REG]  = 0x00000000;
@@ -556,7 +458,7 @@ static void nmi_int_handler(void)
     r4300_reset_soft();
     // clear all interrupts, reset interrupt counters back to 0
     g_cp0_regs[CP0_COUNT_REG] = 0;
-    vi_counter = 0;
+    reset_vi_counter();
     init_interupt();
     // clear the audio status register so that subsequent write_ai() calls will work properly
     g_ai.regs[AI_STATUS_REG] = 0;
@@ -587,7 +489,7 @@ void gen_interupt(void)
 {
     if (stop == 1)
     {
-        vi_counter = 0; // debug
+        reset_vi_counter(); // debug
         dyna_stop();
     }
 
@@ -629,42 +531,52 @@ void gen_interupt(void)
             break;
 
         case VI_INT:
-            vi_int_handler();
+            remove_interupt_event();
+            vi_event_vertical_interrupt(&g_vi);
             break;
     
         case COMPARE_INT:
+            remove_interupt_event();
             compare_int_handler();
             break;
     
         case CHECK_INT:
+            remove_interupt_event();
             check_int_handler();
             break;
     
         case SI_INT:
-            si_int_handler();
+            remove_interupt_event();
+            si_event_si_int(&g_si);
             break;
     
         case PI_INT:
-            pi_int_handler();
+            remove_interupt_event();
+            pi_event_end_of_dma(&g_pi);
             break;
     
         case AI_INT:
-            ai_int_handler();
+            remove_interupt_event();
+            ai_event_end_of_dma(&g_ai);
             break;
 
         case SP_INT:
-            sp_int_handler();
+            remove_interupt_event();
+            rsp_event_sp_int(&g_sp);
             break;
     
         case DP_INT:
-            dp_int_handler();
+            remove_interupt_event();
+            rdp_event_dp_int(&g_dp);
             break;
 
         case HW2_INT:
+            remove_interupt_event();
             hw2_int_handler();
             break;
 
         case NMI_INT:
+            remove_interupt_event();
             nmi_int_handler();
             break;
 

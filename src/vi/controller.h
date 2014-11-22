@@ -72,6 +72,9 @@ int read_vi_regs(struct vi_controller* vi,
 int write_vi_regs(struct vi_controller* vi,
                   uint32_t address, uint32_t value, uint32_t mask);
 
+void vi_event_vertical_interrupt(struct vi_controller* vi);
+
+void gfx_vi_update_screen(void);
 void gfx_vi_status_changed(void);
 void gfx_vi_width_changed(void);
 

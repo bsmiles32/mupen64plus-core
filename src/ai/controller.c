@@ -85,6 +85,12 @@ static unsigned int get_dma_duration(struct ai_controller* ai)
 }
 
 
+static void schedule_ai_event_end_of_dma(unsigned int delay)
+{
+    update_count();
+    add_interupt_event(AI_INT, delay);
+}
+
 static void fifo_push(struct ai_controller* ai)
 {
     unsigned int duration = get_dma_duration(ai);
@@ -101,27 +107,31 @@ static void fifo_push(struct ai_controller* ai)
         ai->fifo[0].length = ai->regs[AI_LEN_REG];
         ai->fifo[0].duration = duration;
 
-        update_count();
-        add_interupt_event(AI_INT, duration);
+        schedule_ai_event_end_of_dma(duration);
     }
 }
 
-void fifo_pop(struct ai_controller* ai)
+static void fifo_pop(struct ai_controller* ai)
 {
     if (ai->regs[AI_STATUS_REG] & 0x80000001)
     {
         ai->regs[AI_STATUS_REG] &= ~0x80000001;
         ai->fifo[0] = ai->fifo[1];
 
-        update_count();
-        add_interupt_event(AI_INT, ai->fifo[0].duration);
+        schedule_ai_event_end_of_dma(ai->fifo[0].duration);
     }
     else
     {
         ai->regs[AI_STATUS_REG] &= ~0x40000000;
     }
+
+    raise_rcp_interrupt(ai->mi, MI_INTR_AI);
 }
 
+void ai_event_end_of_dma(struct ai_controller* ai)
+{
+    fifo_pop(ai);
+}
 
 
 int init_ai(struct ai_controller* ai,
@@ -224,3 +234,4 @@ void audio_ai_dacrate_changed(void)
 {
     audio.aiDacrateChanged(ROM_PARAMS.systemtype);
 }
+

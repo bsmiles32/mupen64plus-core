@@ -60,6 +60,8 @@ const char* get_savesrampath(void);
 void new_frame(void);
 void new_vi(void);
 void poll_inputs(void);
+void main_vi_event_callback(void);
+void reset_vi_counter(void);
 
 int  main_set_core_defaults(void);
 void main_message(m64p_msg_level level, unsigned int osd_corner, const char *format, ...);

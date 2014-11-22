@@ -89,5 +89,7 @@ int write_rsp_regs2(struct rsp_core* sp,
 
 void do_SP_Task(struct rsp_core* sp);
 
+void rsp_event_sp_int(struct rsp_core* sp);
+
 #endif
 

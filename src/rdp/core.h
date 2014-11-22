@@ -88,6 +88,8 @@ int read_dps_regs(struct rdp_core* dp,
 int write_dps_regs(struct rdp_core* dp,
                    uint32_t address, uint32_t value, uint32_t mask);
 
+void rdp_event_dp_int(struct rdp_core* dp);
+
 void pre_framebuffer_read(struct rdp_core* dp, uint32_t address);
 void pre_framebuffer_write(struct rdp_core* dp, uint32_t address, size_t size);
 

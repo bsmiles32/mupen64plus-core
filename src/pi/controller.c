@@ -363,3 +363,11 @@ int write_cart_rom(struct pi_controller* pi,
     DebugMessage(M64MSG_VERBOSE, "Writing to ROM @%08x <- %08x", address, value);
     return 0;
 }
+
+
+void pi_event_end_of_dma(struct pi_controller* pi)
+{
+    pi->regs[PI_STATUS_REG] &= ~3;
+    raise_rcp_interrupt(pi->mi, MI_INTR_PI);
+}
+

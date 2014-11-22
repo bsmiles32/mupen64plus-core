@@ -27,6 +27,7 @@
 #define M64P_CORE_PROTOTYPES 1
 #include "api/m64p_types.h"
 #include "api/callbacks.h"
+#include "main/main.h"
 #include "memory/memory.h"
 #include "r4300/r4300.h"
 #include "r4300/cp0.h"
@@ -255,3 +256,12 @@ enum cic_type detect_cic_type(const void* ipl3)
 
     return 0;
 }
+
+void si_event_si_int(struct si_controller* si)
+{
+    poll_inputs();
+    si->pif_ram[0x3f] = 0x0;
+    si->regs[SI_STATUS_REG] |= 0x1000;
+    raise_rcp_interrupt(si->mi, MI_INTR_SI);
+}
+
