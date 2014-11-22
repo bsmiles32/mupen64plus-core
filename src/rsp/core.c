@@ -134,14 +134,6 @@ void do_SP_Task(struct rsp_core* sp)
         sp->regs2[SP_PC_REG] |= save_pc;
         new_frame();
 
-        update_count();
-        if (sp->mi->regs[MI_INTR_REG] & MI_INTR_SP)
-            add_interupt_event(SP_INT, 1000);
-        if (sp->mi->regs[MI_INTR_REG] & MI_INTR_DP)
-            add_interupt_event(DP_INT, 1000);
-        sp->mi->regs[MI_INTR_REG] &= ~(MI_INTR_SP | MI_INTR_DP);
-        sp->regs[SP_STATUS_REG] &= ~0x303;
-
         // protecting new frame buffers
         protect_framebuffers(sp->dp);
     }
@@ -153,24 +145,12 @@ void do_SP_Task(struct rsp_core* sp)
         rsp.doRspCycles(0xFFFFFFFF);
         timed_section_end(TIMED_SECTION_AUDIO);
         sp->regs2[SP_PC_REG] |= save_pc;
-
-        update_count();
-        if (sp->mi->regs[MI_INTR_REG] & MI_INTR_SP)
-            add_interupt_event(SP_INT, 4000/*500*/);
-        sp->mi->regs[MI_INTR_REG] &= ~MI_INTR_SP;
-        sp->regs[SP_STATUS_REG] &= ~0x303;
     }
     else
     {
         sp->regs2[SP_PC_REG] &= 0xfff;
         rsp.doRspCycles(0xFFFFFFFF);
         sp->regs2[SP_PC_REG] |= save_pc;
-
-        update_count();
-        if (sp->mi->regs[MI_INTR_REG] & MI_INTR_SP)
-            add_interupt_event(SP_INT, 0/*100*/);
-        sp->mi->regs[MI_INTR_REG] &= ~MI_INTR_SP;
-        sp->regs[SP_STATUS_REG] &= ~0x203;
     }
 }
 
@@ -377,11 +357,6 @@ int write_rsp_regs2(struct rsp_core* sp,
 
 void rsp_event_sp_int(struct rsp_core* sp)
 {
-    /* ??? */
-    sp->regs[SP_STATUS_REG] |= 0x203;
-    // sp->regs[SP_STATUS_REG] |= 0x303;
-
-    if (sp->regs[SP_STATUS_REG] & 0x40)
-        raise_rcp_interrupt(sp->mi, MI_INTR_SP);
+    raise_rcp_interrupt(sp->mi, MI_INTR_SP);
 }
 

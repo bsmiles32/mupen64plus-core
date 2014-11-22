@@ -190,9 +190,6 @@ int write_dps_regs(struct rdp_core* dp,
 
 void rdp_event_dp_int(struct rdp_core* dp)
 {
-    dp->dpc_regs[DPC_STATUS_REG] &= ~0x2;
-    dp->dpc_regs[DPC_STATUS_REG] |= 0x81;
-
     raise_rcp_interrupt(dp->mi, MI_INTR_DP);
 }
 
