@@ -58,6 +58,9 @@ int init_vi(struct vi_controller* vi,
 {
     memset(vi, 0, sizeof(*vi));
 
+    /* XXX: first VI is triggered after 5000 ticks ? */
+    vi->next_vi = vi->duration = 5000;
+
     vi->mi = mi;
 
     return 0;
@@ -80,7 +83,7 @@ int read_vi_regs(struct vi_controller* vi,
     {
         /* VI_CURRENT_REG should reflect current timing and field */
         update_count();
-        vi->regs[VI_CURRENT_REG] = (vi->duration - (next_vi - g_cp0_regs[CP0_COUNT_REG]))/1500;
+        vi->regs[VI_CURRENT_REG] = (vi->duration - (vi->next_vi - g_cp0_regs[CP0_COUNT_REG]))/1500;
         vi->regs[VI_CURRENT_REG] = (vi->regs[VI_CURRENT_REG] & (~1)) | vi->field;
     }
 

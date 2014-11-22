@@ -459,7 +459,7 @@ static int savestates_load_m64p(char *filepath)
 #endif
 
     next_interupt = GETDATA(curr, unsigned int);
-    next_vi = GETDATA(curr, unsigned int);
+    g_vi.next_vi = GETDATA(curr, unsigned int);
     g_vi.field = GETDATA(curr, unsigned int);
 
     // assert(savestateData+savestateSize == curr)
@@ -559,7 +559,7 @@ static int savestates_load_pj64(char *filepath, void *handle,
     next_interupt = (g_cp0_regs[CP0_COMPARE_REG] < vi_timer)
                   ? g_cp0_regs[CP0_COMPARE_REG]
                   : vi_timer;
-    next_vi = vi_timer;
+    g_vi.next_vi = vi_timer;
     g_vi.field = 0;
     *((unsigned int*)&buffer[0]) = VI_INT;
     *((unsigned int*)&buffer[4]) = vi_timer;
@@ -1226,7 +1226,7 @@ static int savestates_save_m64p(char *filepath)
 #endif
 
     PUTDATA(curr, unsigned int, next_interupt);
-    PUTDATA(curr, unsigned int, next_vi);
+    PUTDATA(curr, unsigned int, g_vi.next_vi);
     PUTDATA(curr, unsigned int, g_vi.field);
 
     to_little_endian_buffer(queue, 4, queuelength/4);

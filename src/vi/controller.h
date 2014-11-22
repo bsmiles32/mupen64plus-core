@@ -55,6 +55,7 @@ struct vi_controller
 {
     uint32_t regs[VI_REGS_COUNT];
     unsigned int duration;
+    unsigned int next_vi;
     unsigned int field;
 
     struct mi_controller* mi;

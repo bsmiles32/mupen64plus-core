@@ -51,7 +51,6 @@
 
 #include "new_dynarec/new_dynarec.h"
 
-unsigned int next_vi;
 static int vi_counter=0;
 
 int interupt_unsafe_state = 0;
@@ -376,12 +375,8 @@ void load_eventqueue_infos(char *buf)
 void init_interupt(void)
 {
     SPECIAL_done = 1;
-    next_vi = next_interupt = 5000;
-    g_vi.duration = next_vi;
-    g_vi.field = 0;
-
     clear_queue();
-    add_interupt_event_count(VI_INT, next_vi);
+    add_interupt_event_count(VI_INT, g_vi.next_vi);
     add_interupt_event_count(SPECIAL_INT, 0);
 }
 
@@ -475,12 +470,12 @@ static void vi_int_handler(void)
     g_vi.duration = (g_vi.regs[VI_V_SYNC_REG] == 0)
                   ? 500000
                   : (g_vi.regs[VI_V_SYNC_REG] + 1)*1500;
-    next_vi += g_vi.duration;
+    g_vi.next_vi += g_vi.duration;
     /* update VI field (0 if non interlaced, toggle if interlaced) */
     g_vi.field = ((g_vi.regs[VI_STATUS_REG] & 0x40) >> 6) & ~g_vi.field;
 
     remove_interupt_event();
-    add_interupt_event_count(VI_INT, next_vi);
+    add_interupt_event_count(VI_INT, g_vi.next_vi);
 
     raise_rcp_interrupt(&g_mi, MI_INTR_VI);
 }
