@@ -155,6 +155,19 @@ const struct game_controller_flavor g_mouse_controller_flavor =
     mouse_controller_reset
 };
 
+/* Train controller */
+static void train_controller_reset(struct game_controller* cont)
+{
+    cont->status = 0x00;
+}
+
+const struct game_controller_flavor g_train_controller_flavor =
+{
+    "Train controller",
+    0x0005, /* XXX: Zoinkity doc says 0x2004 - but only 0x0005 allows to select train controller */
+    train_controller_reset
+};
+
 
 void init_game_controller(struct game_controller* cont,
     const struct game_controller_flavor* flavor,

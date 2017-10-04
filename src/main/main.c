@@ -1562,11 +1562,30 @@ m64p_error main_run(void)
     void* joybus_devices[PIF_CHANNELS_COUNT];
     const struct joybus_device_interface* ijoybus_devices[PIF_CHANNELS_COUNT];
 
+    const struct game_controller_flavor* cont_flavors[GAME_CONTROLLERS_COUNT];
+
     memset(&g_dev.gb_carts, 0, GAME_CONTROLLERS_COUNT*sizeof(*g_dev.gb_carts));
     memset(&l_gb_carts_data, 0, GAME_CONTROLLERS_COUNT*sizeof(*l_gb_carts_data));
     memset(cin_compats, 0, GAME_CONTROLLERS_COUNT*sizeof(*cin_compats));
 
     netplay_read_registration(cin_compats);
+
+    cont_flavors[0] = &g_standard_controller_flavor;
+    cont_flavors[1] = &g_standard_controller_flavor;
+    cont_flavors[2] = &g_standard_controller_flavor;
+    cont_flavors[3] = &g_standard_controller_flavor;
+
+    /* HACK: detect densha de Go 64 - to activate Train Controller
+     * XXX: Use the rom db to know if other peripherals are compatibles (VRU, mouse, train, ...)
+     */
+    uint16_t game_code = (uint16_t)(*(mem_base_u32(g_mem_base, MM_CART_ROM + 0x3c)) >> 16);
+    if (game_code == 0x4436 /* "D6" */) {
+        /* Force train controller in controller 3 */
+        Controls[2].Present = 1;
+        Controls[2].RawData = 0;
+        cont_flavors[2] = &g_train_controller_flavor;
+        /* TODO: force VR{U,S} in controller 4 */
+    }
 
     for (i = 0; i < GAME_CONTROLLERS_COUNT; ++i) {
 
@@ -1581,12 +1600,8 @@ m64p_error main_run(void)
         }
         /* otherwise let the core do the processing */
         else {
-            /* select appropriate controller
-             * FIXME: assume for now that only standard controller is compatible
-             * Use the rom db to know if other peripherals are compatibles (VRU, mouse, train, ...)
-             */
-            const struct game_controller_flavor* cont_flavor =
-                &g_standard_controller_flavor;
+            /* select appropriate controller */
+            const struct game_controller_flavor* cont_flavor = cont_flavors[i];
 
             joybus_devices[i] = &g_dev.controllers[i];
             ijoybus_devices[i] = &g_ijoybus_device_controller;
