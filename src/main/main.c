@@ -1155,10 +1155,10 @@ m64p_error main_run(void)
 
     cheat_add_hacks(&g_cheat_ctx, ROM_PARAMS.cheats);
 
-    /* do byte-swapping if it's not been done yet */
+    /* convert Z64 ROM to "native u32" only on first load */
     if (g_MemHasBeenBSwapped == 0)
     {
-        swap_buffer((uint8_t*)mem_base_u32(g_mem_base, MM_CART_ROM), 4, g_rom_size/4);
+        to_big_endian_buffer((uint8_t*)mem_base_u32(g_mem_base, MM_CART_ROM), 4, g_rom_size/4);
         g_MemHasBeenBSwapped = 1;
     }
 
