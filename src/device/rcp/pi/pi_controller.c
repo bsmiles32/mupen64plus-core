@@ -48,6 +48,40 @@ int validate_pi_request(struct pi_controller* pi)
     return 1;
 }
 
+static unsigned bsd_domain(uint32_t address)
+{
+    uint8_t x = address >> 24;
+    return (x == 0x05 || ((x >= 0x08) && (x < 0x10)))
+        ? 1
+        : 0;
+}
+
+static unsigned int compute_cycles(uint32_t length, uint8_t lat, uint8_t pwd, uint8_t rls, uint8_t pgs)
+{
+    if (length == 0)
+        return 0;
+
+    // ALE,ALH are maintained for 7 cycles each
+    // plus 1+LAT cycles of extra latency before word transfer
+    unsigned int c_per_address_latch = 7+7+1+lat;
+    // each word takes 1+PWD, 1+RLS cycles
+    unsigned int c_per_word = 2 + pwd + rls;
+    // ??? there might be some extra latency each 64 word (internal PI buffering ?) given the chronograms (http://n64.icequake.net/mirror/www.crazynation.org/N64/)
+    unsigned int c_per_64w = 28; // PI_tests suggests 28 ??? Kx>=25, SC, PG>=30
+
+    // AL is necessary at each page boundary (e.g. after 2^(1+PGS) words)
+    unsigned int n_al = 1 + ((length-1) >> (1 + 1 + pgs));
+    // 1 word = 2 bytes
+    unsigned int n_words = 1 + (length-1) / 2;
+    unsigned int n_64w = (length-1) / 128;
+
+    // 3/2 comes from 93.75/62.5 (3 CPU cycles for 2 PI cycles).
+    // 1/2 comes from CP0_COUNT getting incremented at 1/2 MClock
+    return (n_al * c_per_address_latch
+          + n_words * c_per_word
+          + n_64w * c_per_64w) * 3/4;
+}
+
 static void dma_pi_read(struct pi_controller* pi)
 {
     if (!validate_pi_request(pi))
@@ -68,9 +102,24 @@ static void dma_pi_read(struct pi_controller* pi)
         return;
     }
 
+    unsigned b = bsd_domain(cart_addr) * 4;
+    unsigned int cycles = compute_cycles(length,
+        pi->regs[b+PI_BSD_DOM1_LAT_REG],
+        pi->regs[b+PI_BSD_DOM1_PWD_REG],
+        pi->regs[b+PI_BSD_DOM1_RLS_REG],
+        pi->regs[b+PI_BSD_DOM1_PGS_REG]);
+
+    /* XXX: simulate bus contention */
+    cycles += add_random_interrupt_time(pi->mi->r4300);
+
+#if 0
+    DebugMessage(M64MSG_WARNING, "DMA READ: %s, cycles=%d, length=%08x, lat=%02x pwd=%02x rls=%02x pgs=%02x", handler->name, cycles, length,
+        pi->regs[b+PI_BSD_DOM1_LAT_REG], pi->regs[b+PI_BSD_DOM1_PWD_REG], pi->regs[b+PI_BSD_DOM1_RLS_REG], pi->regs[b+PI_BSD_DOM1_PGS_REG]);
+#endif
+
     pre_framebuffer_read(&pi->dp->fb, dram_addr);
 
-    unsigned int cycles = handler->dma_read(opaque, dram, dram_addr, cart_addr, length);
+    handler->dma_read(opaque, dram, dram_addr, cart_addr, length);
 
     /* Mark DMA as busy */
     pi->regs[PI_STATUS_REG] |= PI_STATUS_DMA_BUSY;
@@ -100,7 +149,23 @@ static void dma_pi_write(struct pi_controller* pi)
         return;
     }
 
-    unsigned int cycles = handler->dma_write(opaque, dram, dram_addr, cart_addr, length);
+    unsigned b = bsd_domain(cart_addr) * 4;
+    unsigned int cycles = compute_cycles(length,
+        pi->regs[b+PI_BSD_DOM1_LAT_REG],
+        pi->regs[b+PI_BSD_DOM1_PWD_REG],
+        pi->regs[b+PI_BSD_DOM1_RLS_REG],
+        pi->regs[b+PI_BSD_DOM1_PGS_REG]);
+
+    /* XXX: simulate bus contention */
+    cycles += add_random_interrupt_time(pi->mi->r4300);
+
+#if 0
+    DebugMessage(M64MSG_WARNING, "DMA WRITE: %s, cycles=%d, length=%08x, lat=%02x pwd=%02x rls=%02x pgs=%02x", handler->name, cycles, length,
+        pi->regs[b+PI_BSD_DOM1_LAT_REG], pi->regs[b+PI_BSD_DOM1_PWD_REG], pi->regs[b+PI_BSD_DOM1_RLS_REG], pi->regs[b+PI_BSD_DOM1_PGS_REG]);
+#endif
+
+    handler->dma_write(opaque, dram, dram_addr, cart_addr, length);
+
 
     post_framebuffer_write(&pi->dp->fb, dram_addr, length);
 

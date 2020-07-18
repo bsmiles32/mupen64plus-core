@@ -50,7 +50,7 @@ static void get_pi_dma_handler(struct cart* cart, struct dd_controller* dd, uint
 {
 #define RW(o, x) \
     do { \
-    static const struct pi_dma_handler h = { x ## _dma_read, x ## _dma_write }; \
+    static const struct pi_dma_handler h = { #x, x ## _dma_read, x ## _dma_write }; \
     *opaque = (o); \
     *handler = &h; \
     } while(0)
